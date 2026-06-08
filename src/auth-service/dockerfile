@@ -1,0 +1,35 @@
+# --- Giai đoạn 1: Builder ---
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Ngăn Python ghi các file .pyc và bật chế độ không buffer để log xuất hiện ngay lập tức
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Cài đặt các công cụ build nếu cần (với fastapi slim thì thường không cần, nhưng cứ để đề phòng)
+RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
+
+# Sao chép và cài đặt dependencies vào thư mục cục bộ của user
+COPY requirements.txt .
+RUN pipper=pip && $pipper install --no-cache-dir --user -r requirements.txt
+
+
+# --- Giai đoạn 2: Runtime (Image cuối cùng cực nhẹ) ---
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Lấy các thư viện đã cài đặt từ giai đoạn builder sang
+COPY --from=builder /root/.local /root/.local
+COPY . .
+
+# Cập nhật PATH để hệ thống nhận biết các gói đã cài ở /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+# Khởi chạy FastAPI bằng Uvicorn trên port 8000
+EXPOSE 8000
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
