@@ -17,8 +17,8 @@ images:
   newName: ghcr.io/thang2005hcmus/testcd/notification-service
   newTag: a12201780d423bf73226358569fa127c0dde6900
 - name: order-image-placeholder
-  newName: ghcr.io/placeholder/order-service
-  newTag: latest
+  newName: ghcr.io/thang2005hcmus/testcd/order-service
+  newTag: 9c830416a96f86e1a425a06c74c46d4ca6cf7c67
 - name: product-image-placeholder
   newName: ghcr.io/placeholder/product-service
   newTag: latest
