@@ -3,22 +3,22 @@ kind: Kustomization
 
 # Khai báo các thư mục chứa file Manifests (Deployment/Service) gốc của 4 dịch vụ
 resources:
-  - ../../base/auth
-  - ../../base/product
-  - ../../base/order
-  - ../../base/notification
+- ../../base/auth
+- ../../base/product
+- ../../base/order
+- ../../base/notification
 
 # Đây là nơi GitHub Actions sẽ tự động nhảy vào ghi đè tag sau mỗi lần push code
 images:
-  - name: auth-image-placeholder
-    newName: ghcr.io/placeholder/auth-service
-    newTag: latest
-  - name: product-image-placeholder
-    newName: ghcr.io/placeholder/product-service
-    newTag: latest
-  - name: order-image-placeholder
-    newName: ghcr.io/placeholder/order-service
-    newTag: latest
-  - name: notification-image-placeholder
-    newName: ghcr.io/placeholder/notification-service
-    newTag: latest
+- name: auth-image-placeholder
+  newName: ghcr.io/thang2005hcmus/testcd/auth-service
+  newTag: 11658dd7d10c0ac7a06f6c60f07c92f904471a4c
+- name: notification-image-placeholder
+  newName: ghcr.io/placeholder/notification-service
+  newTag: latest
+- name: order-image-placeholder
+  newName: ghcr.io/placeholder/order-service
+  newTag: latest
+- name: product-image-placeholder
+  newName: ghcr.io/placeholder/product-service
+  newTag: latest
