@@ -24,7 +24,7 @@ kubectl port-forward svc/argocd-server -n argocd 9000:443
 ```
 ### Truy cập ArgoCD
 ```
-https://localhost:
+https://localhost:9000
 ```
 
 ### Test CD 
