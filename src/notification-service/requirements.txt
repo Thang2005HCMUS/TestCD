@@ -1,0 +1,16 @@
+# Web Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Data Validation & Settings
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# HTTP Client (Rất cần cho Microservices gọi nhau)
+httpx==0.28.1
+
+# Production Metrics & Liveness/Readiness Check (Tốt cho K8s)
+prometheus-fastapi-instrumentator==7.0.0
+
+# Thêm vào cuối file requirements.txt cũ
+pytest==8.3.4
