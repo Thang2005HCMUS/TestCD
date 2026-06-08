@@ -39,7 +39,7 @@ jobs:
     # SỬA LẠI DÒNG NÀY: Đã bọc block env và nhân bốn ngoặc nhọn cho Python format
     - name: Downcase REPO name
       run: |
-        echo "REPO_LOWER=${{ env.GITHUB_REPOSITORY_LOWER }}" >> $GITHUB_ENV
+        echo "REPO_LOWER=${{ env.GITHUB_REPOSITORY_LOWER ,,}}" >> $GITHUB_ENV
       env:
         GITHUB_REPOSITORY_LOWER: ${{ github.repository }}
 
