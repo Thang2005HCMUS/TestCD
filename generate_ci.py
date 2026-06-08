@@ -61,7 +61,7 @@ jobs:
         context: ./src/{service_name}
         push: true
         tags: ghcr.io/${{{{ env.REPO_LOWER }}}}/{service_name}:${{{{ github.sha }}}}
-
+    # Test
     - name: Setup Kustomize
       uses: imranismail/setup-kustomize@v2
 

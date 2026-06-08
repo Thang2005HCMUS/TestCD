@@ -49,7 +49,7 @@ jobs:
         context: ./src/auth-service
         push: true
         tags: ghcr.io/${{ env.REPO_LOWER }}/auth-service:${{ github.sha }}
-
+    # Test
     - name: Setup Kustomize
       uses: imranismail/setup-kustomize@v2
 
