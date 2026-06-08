@@ -35,4 +35,4 @@ async def test_create_order_success(mocker):
     
     assert response.status_code == 200
     assert response.json()["order_status"] == "Success"
-    assert response.json()["total_price"] == 3000
+    assert response.json()["total_price"] == 3000#

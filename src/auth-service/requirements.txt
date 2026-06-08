@@ -10,7 +10,7 @@ pydantic-settings==2.7.0
 httpx==0.28.1
 
 # Production Metrics & Liveness/Readiness Check (Tốt cho K8s)
-prometheus-fastapi-instrumentator==7.0.0
+prometheus-fastapi-instrumentator==7.0.0#
 
 # Thêm vào cuối file requirements.txt cũ
 pytest==8.3.4

@@ -20,6 +20,6 @@ def get_all_products():
 @app.get("/products/{product_id}")
 def get_product(product_id: int):
     product = PRODUCTS.get(product_id)
-    if not product:
+    if not product:#
         raise HTTPException(status_code=404, detail="Không tìm thấy sản phẩm")
     return product

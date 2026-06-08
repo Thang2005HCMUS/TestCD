@@ -13,4 +13,4 @@ def test_send_notification():
         "message": "Đơn hàng đã giao"
     })
     assert response.status_code == 200
-    assert response.json()["status"] == "Sent"
+    assert response.json()["status"] == "Sent"#

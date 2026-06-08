@@ -18,7 +18,7 @@ class OrderRequest(BaseModel):
 def health_check():
     return {"status": "healthy", "service": "order-service"}
 
-@app.post("/orders")
+@app.post("/orders")#
 async def create_order(order: OrderRequest):
     # 1. Gọi sang Product Service lấy thông tin sản phẩm
     async with httpx.AsyncClient() as client:
