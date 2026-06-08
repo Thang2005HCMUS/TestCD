@@ -63,5 +63,19 @@ jobs:
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
         git add k8s/environments/dev/kustomization.yaml
+        
+        # Chỉ commit nếu thực sự có sự thay đổi
         git commit -m "chore(gitops): update order-service tag to ${{ github.sha }} [skip ci]" || echo "No changes to commit"
-        git push
+        
+        # CHIẾN THUẬT: Vòng lặp kéo code mới về (rebase) rồi push, thử lại tối đa 5 lần nếu bị tranh giành
+        for i in {1..5}; do
+          echo "Đang thử push lần $i..."
+          git pull --rebase origin main
+          if git push origin main; then
+            echo "✅ Push cấu hình thành công!"
+            exit 0
+          fi
+          echo "❌ Push thất bại do xung đột, đang đợi để thử lại..."
+          sleep $((RANDOM % 5 + 2)) # Nghỉ ngẫu nhiên từ 2-7 giây để tránh các job đâm sầm vào nhau lần nữa
+        done
+        exit 1
