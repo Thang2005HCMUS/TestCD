@@ -12,7 +12,7 @@ resources:
 images:
 - name: auth-image-placeholder
   newName: ghcr.io/thang2005hcmus/testcd/auth-service
-  newTag: fc6e2c355debdf70736265ec67063d2d5e76d4ff
+  newTag: 687fd0c623b77f246e5e6ff819810bab38146be6
 - name: notification-image-placeholder
   newName: ghcr.io/thang2005hcmus/testcd/notification-service
   newTag: 687fd0c623b77f246e5e6ff819810bab38146be6
