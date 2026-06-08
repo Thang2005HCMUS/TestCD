@@ -12,13 +12,13 @@ resources:
 images:
 - name: auth-image-placeholder
   newName: ghcr.io/thang2005hcmus/testcd/auth-service
-  newTag: 11658dd7d10c0ac7a06f6c60f07c92f904471a4c
+  newTag: 9c830416a96f86e1a425a06c74c46d4ca6cf7c67
 - name: notification-image-placeholder
   newName: ghcr.io/thang2005hcmus/testcd/notification-service
-  newTag: a12201780d423bf73226358569fa127c0dde6900
+  newTag: 9c830416a96f86e1a425a06c74c46d4ca6cf7c67
 - name: order-image-placeholder
-  newName: ghcr.io/placeholder/order-service
-  newTag: latest
+  newName: ghcr.io/thang2005hcmus/testcd/order-service
+  newTag: 9c830416a96f86e1a425a06c74c46d4ca6cf7c67
 - name: product-image-placeholder
-  newName: ghcr.io/placeholder/product-service
-  newTag: latest
+  newName: ghcr.io/thang2005hcmus/testcd/product-service
+  newTag: 9c830416a96f86e1a425a06c74c46d4ca6cf7c67
