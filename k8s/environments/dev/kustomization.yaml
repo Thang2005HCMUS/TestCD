@@ -18,7 +18,7 @@ images:
   newTag: 9384860fb24a042d3824b9b8a0ea683551d55d89
 - name: order-image-placeholder
   newName: ghcr.io/thang2005hcmus/testcd/order-service
-  newTag: 687fd0c623b77f246e5e6ff819810bab38146be6
+  newTag: 9384860fb24a042d3824b9b8a0ea683551d55d89
 - name: product-image-placeholder
   newName: ghcr.io/thang2005hcmus/testcd/product-service
   newTag: 9384860fb24a042d3824b9b8a0ea683551d55d89
