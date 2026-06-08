@@ -15,7 +15,7 @@ images:
   newTag: fc6e2c355debdf70736265ec67063d2d5e76d4ff
 - name: notification-image-placeholder
   newName: ghcr.io/thang2005hcmus/testcd/notification-service
-  newTag: fc6e2c355debdf70736265ec67063d2d5e76d4ff
+  newTag: 687fd0c623b77f246e5e6ff819810bab38146be6
 - name: order-image-placeholder
   newName: ghcr.io/thang2005hcmus/testcd/order-service
   newTag: fc6e2c355debdf70736265ec67063d2d5e76d4ff
