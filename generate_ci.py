@@ -9,6 +9,7 @@ services = [
 ]
 
 # Template chung cho tất cả các file CI Workflows
+# Mẹo: Đã nhân đôi {{ thành {{{{ cho các biến GitHub Actions để Python không can thiệp
 workflow_template = """name: CI {service_title}
 
 on:
@@ -44,19 +45,19 @@ jobs:
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        username: ${{{{ github.actor }}}}
+        password: ${{{{ secrets.GITHUB_TOKEN }}}}
 
     - name: Downcase REPO name
       run: |
-        echo "REPO_LOWER=${{GITHUB_REPOSITORY,,}}" >> $GITHUB_ENV
+        echo "REPO_LOWER=${{{{GITHUB_REPOSITORY,,}}}}" >> $GITHUB_ENV
 
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v5
       with:
         context: ./src/{service_name}
         push: true
-        tags: ghcr.io/${{ env.REPO_LOWER }}/{service_name}:${{ github.sha }}
+        tags: ghcr.io/${{{{ env.REPO_LOWER }}}}/{service_name}:${{{{ github.sha }}}}
 
     - name: Setup Kustomize
       uses: imranismail/setup-kustomize@v2
@@ -64,14 +65,14 @@ jobs:
     - name: Update Image Tag in Kustomize
       run: |
         cd k8s/environments/dev
-        kustomize edit set image {image_placeholder}=ghcr.io/${{ env.REPO_LOWER }}/{service_name}:${{ github.sha }}
+        kustomize edit set image {image_placeholder}=ghcr.io/${{{{ env.REPO_LOWER }}}}/{service_name}:${{{{ github.sha }}}}
 
     - name: Commit and Push Manifest Changes
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
         git add k8s/environments/dev/kustomization.yaml
-        git commit -m "chore(gitops): update {service_name} tag to ${{ github.sha }} [skip ci]" || echo "No changes to commit"
+        git commit -m "chore(gitops): update {service_name} tag to ${{{{ github.sha }}}} [skip ci]" || echo "No changes to commit"
         git push
 """
 
