@@ -9,7 +9,6 @@ services = [
 ]
 
 # Template chung cho tất cả các file CI Workflows
-# Mẹo: Đã nhân đôi {{ thành {{{{ cho các biến GitHub Actions để Python không can thiệp
 workflow_template = """name: CI {service_title}
 
 on:
@@ -48,11 +47,10 @@ jobs:
         username: ${{{{ github.actor }}}}
         password: ${{{{ secrets.GITHUB_TOKEN }}}}
 
-    # SỬA LẠI DÒNG NÀY: Đã bọc block env và nhân bốn ngoặc nhọn cho Python format
+    # ĐÃ SỬA TẠI ĐÂY: Dùng biến môi trường chuẩn của Bash ($GITHUB_REPOSITORY_LOWER,,) thay vì biểu thức GitHub Actions
     - name: Downcase REPO name
       run: |
-        REPO="${{{{ github.repository }}}}"
-        echo "REPO_LOWER=${{{{REPO,,}}}}" >> $GITHUB_ENV
+        echo "REPO_LOWER=${{GITHUB_REPOSITORY_LOWER,,}}" >> $GITHUB_ENV
       env:
         GITHUB_REPOSITORY_LOWER: ${{{{ github.repository }}}}
 
@@ -62,7 +60,7 @@ jobs:
         context: ./src/{service_name}
         push: true
         tags: ghcr.io/${{{{ env.REPO_LOWER }}}}/{service_name}:${{{{ github.sha }}}}
-    # Test
+
     - name: Setup Kustomize
       uses: imranismail/setup-kustomize@v2
 
