@@ -21,4 +21,4 @@ images:
   newTag: 5005df3498d750cce52278cfbb67c61c02b47b9d
 - name: product-image-placeholder
   newName: ghcr.io/thang2005hcmus/testcd/product-service
-  newTag: 9c830416a96f86e1a425a06c74c46d4ca6cf7c67
+  newTag: 5005df3498d750cce52278cfbb67c61c02b47b9d
