@@ -18,6 +18,14 @@ kubectl create secret docker-registry ghcr-secret \
 kubectl apply -n argocd   --server-side   --force-conflicts   -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
 ```
+### Cấu hình để truy cập ArgoCD
+```
+kubectl port-forward svc/argocd-server -n argocd 9000:443
+```
+### Truy cập ArgoCD
+```
+https://localhost:
+```
 
 ### Test CD 
 
