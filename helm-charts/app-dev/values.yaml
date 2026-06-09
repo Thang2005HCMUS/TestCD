@@ -7,7 +7,7 @@ services:
     tag: 513e97bc6fceb34b9e29418206e8483145033fde
   notification-service:
     repository: ghcr.io/thang2005hcmus/testcd/notification-service
-    tag: ab5d25cbd9f25c7c55e7a908172370a3a1771825
+    tag: 513e97bc6fceb34b9e29418206e8483145033fde
   order-service:
     repository: ghcr.io/thang2005hcmus/testcd/order-service
     tag: ab5d25cbd9f25c7c55e7a908172370a3a1771825
