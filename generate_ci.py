@@ -7,7 +7,7 @@ services = [
     {"name": "order-service", "placeholder": "order-image-placeholder", "has_mock": True},  # Cần pytest-mock
     {"name": "notification-service", "placeholder": "notification-image-placeholder", "has_mock": False},
 ]
-
+branch = "kustomize-dev"
 # Template chung cho tất cả các file CI Workflows
 workflow_template = """name: CI {service_title}
 
@@ -81,8 +81,8 @@ jobs:
         # CHIẾN THUẬT: Vòng lặp kéo code mới về (rebase) rồi push, thử lại tối đa 5 lần nếu bị tranh giành
         for i in {{1..5}}; do
           echo "Đang thử push lần $i..."
-          git pull --rebase origin main
-          if git push origin main; then
+          git pull --rebase origin {branch_name}
+          if git push origin {branch_name}; then
             echo "✅ Push cấu hình thành công!"
             exit 0
           fi
@@ -109,7 +109,8 @@ for svc in services:
         service_title=title,
         service_name=svc["name"],
         image_placeholder=svc["placeholder"],
-        mock_package=mock_package
+        mock_package=mock_package,
+        branch_name=branch
     )
     
     # Đường dẫn file đầu ra

@@ -70,8 +70,8 @@ jobs:
         # CHIẾN THUẬT: Vòng lặp kéo code mới về (rebase) rồi push, thử lại tối đa 5 lần nếu bị tranh giành
         for i in {1..5}; do
           echo "Đang thử push lần $i..."
-          git pull --rebase origin main
-          if git push origin main; then
+          git pull --rebase origin kustomize-dev
+          if git push origin kustomize-dev; then
             echo "✅ Push cấu hình thành công!"
             exit 0
           fi
