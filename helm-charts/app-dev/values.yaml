@@ -12,5 +12,5 @@ services:
     repository: ghcr.io/thang2005hcmus/testcd/order-service
     tag: ab5d25cbd9f25c7c55e7a908172370a3a1771825
   product-service:
-    repository: thang2005hcmus/testcd/product-service
-    tag: d5c4b864d7d8e767165c8505fd8b958c71a7b5d4
+    repository: ghcr.io/thang2005hcmus/testcd/product-service
+    tag: 513e97bc6fceb34b9e29418206e8483145033fde
