@@ -1,0 +1,152 @@
+---
+# Source: app-dev/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  labels:
+    app: auth-service
+spec:
+  ports:
+  - port: 8000       # Hoặc dùng 8000 nếu sau này có service chạy port khác
+    targetPort: 8000
+  selector:
+    app: auth-service
+---
+# Source: app-dev/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  labels:
+    app: notification-service
+spec:
+  ports:
+  - port: 8000       # Hoặc dùng 8000 nếu sau này có service chạy port khác
+    targetPort: 8000
+  selector:
+    app: notification-service
+---
+# Source: app-dev/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  labels:
+    app: order-service
+spec:
+  ports:
+  - port: 8000       # Hoặc dùng 8000 nếu sau này có service chạy port khác
+    targetPort: 8000
+  selector:
+    app: order-service
+---
+# Source: app-dev/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  labels:
+    app: product-service
+spec:
+  ports:
+  - port: 8000       # Hoặc dùng 8000 nếu sau này có service chạy port khác
+    targetPort: 8000
+  selector:
+    app: product-service
+---
+# Source: app-dev/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  labels:
+    app: auth-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+      - name: auth-service
+        image: "ghcr.io/thang2005hcmus/testcd/auth-service:513e97bc6fceb34b9e29418206e8483145033fde"
+        ports:
+        - containerPort: 8000
+        # Nếu service có cấu hình env riêng biệt (ví dụ order-service)
+---
+# Source: app-dev/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  labels:
+    app: notification-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+      - name: notification-service
+        image: "ghcr.io/thang2005hcmus/testcd/notification-service:513e97bc6fceb34b9e29418206e8483145033fde"
+        ports:
+        - containerPort: 8000
+        # Nếu service có cấu hình env riêng biệt (ví dụ order-service)
+---
+# Source: app-dev/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  labels:
+    app: order-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+      - name: order-service
+        image: "ghcr.io/thang2005hcmus/testcd/order-service:513e97bc6fceb34b9e29418206e8483145033fde"
+        ports:
+        - containerPort: 8000
+        # Nếu service có cấu hình env riêng biệt (ví dụ order-service)
+---
+# Source: app-dev/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  labels:
+    app: product-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+    spec:
+      containers:
+      - name: product-service
+        image: "ghcr.io/thang2005hcmus/testcd/product-service:513e97bc6fceb34b9e29418206e8483145033fde"
+        ports:
+        - containerPort: 8000
+        # Nếu service có cấu hình env riêng biệt (ví dụ order-service)
