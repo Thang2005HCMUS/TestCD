@@ -15,7 +15,7 @@ images:
   newTag: 2779034a40da3f47448e3b6684ceecc282a40d6c
 - name: notification-image-placeholder
   newName: ghcr.io/thang2005hcmus/testcd/notification-service
-  newTag: 2779034a40da3f47448e3b6684ceecc282a40d6c
+  newTag: d5c4b864d7d8e767165c8505fd8b958c71a7b5d4
 - name: order-image-placeholder
   newName: ghcr.io/thang2005hcmus/testcd/order-service
   newTag: 2779034a40da3f47448e3b6684ceecc282a40d6c
