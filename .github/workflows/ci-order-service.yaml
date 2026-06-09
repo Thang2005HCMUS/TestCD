@@ -36,7 +36,6 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    # ĐÃ SỬA TẠI ĐÂY: Dùng biến môi trường chuẩn của Bash ($GITHUB_REPOSITORY_LOWER,,) thay vì biểu thức GitHub Actions
     - name: Downcase REPO name
       run: |
         echo "REPO_LOWER=${GITHUB_REPOSITORY_LOWER,,}" >> $GITHUB_ENV
@@ -50,24 +49,22 @@ jobs:
         push: true
         tags: ghcr.io/${{ env.REPO_LOWER }}/order-service:${{ github.sha }}
 
-    - name: Setup Kustomize
-      uses: imranismail/setup-kustomize@v2
-
-    - name: Update Image Tag in Kustomize
+    # THAY ĐỔI Ở ĐÂY: Dùng yq để cập nhật values.yaml của Helm thay vì Kustomize
+    - name: Update Image Tag in Helm values.yaml
       run: |
-        cd k8s/environments/dev
-        kustomize edit set image order-image-placeholder=ghcr.io/${{ env.REPO_LOWER }}/order-service:${{ github.sha }}
+        yq -i '.services."order-service".repository = "ghcr.io/'"${{ env.REPO_LOWER }}"'/order-service"' helm-charts/app-dev/values.yaml
+        yq -i '.services."order-service".tag = "${{ github.sha }}"' helm-charts/app-dev/values.yaml
 
     - name: Commit and Push Manifest Changes
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
-        git add k8s/environments/dev/kustomization.yaml
+        git add helm-charts/app-dev/values.yaml
         
         # Chỉ commit nếu thực sự có sự thay đổi
-        git commit -m "chore(gitops): update order-service tag to ${{ github.sha }} [skip ci]" || echo "No changes to commit"
+        git commit -m "chore(gitops): update order-service helm tag to ${{ github.sha }} [skip ci]" || echo "No changes to commit"
         
-        # CHIẾN THUẬT: Vòng lặp kéo code mới về (rebase) rồi push, thử lại tối đa 5 lần nếu bị tranh giành
+        # CHIẾN THUẬT: Vòng lặp kéo code mới về (rebase) rồi push, thử lại tối đa 5 lần
         for i in {1..5}; do
           echo "Đang thử push lần $i..."
           git pull --rebase origin helm-dev
@@ -76,6 +73,6 @@ jobs:
             exit 0
           fi
           echo "❌ Push thất bại do xung đột, đang đợi để thử lại..."
-          sleep $((RANDOM % 5 + 2)) # Nghỉ ngẫu nhiên từ 2-7 giây để tránh các job đâm sầm vào nhau lần nữa
+          sleep $((RANDOM % 5 + 2))
         done
         exit 1

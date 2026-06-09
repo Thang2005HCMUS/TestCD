@@ -1,0 +1,15 @@
+{{- range $name, $config := .Values.services }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+spec:
+  ports:
+  - port: 8000       # Hoặc dùng {{ $config.port | default 8000 }} nếu sau này có service chạy port khác
+    targetPort: 8000
+  selector:
+    app: {{ $name }}
+---
+{{- end }}

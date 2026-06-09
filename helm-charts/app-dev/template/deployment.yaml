@@ -1,0 +1,29 @@
+{{- range $name, $config := .Values.services }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}
+    spec:
+      containers:
+      - name: {{ $name }}
+        image: "{{ $config.repository }}:{{ $config.tag }}"
+        ports:
+        - containerPort: 8000
+        # Nếu service có cấu hình env riêng biệt (ví dụ order-service)
+        {{- if $config.env }}
+        env:
+          {{- toYaml $config.env | nindent 10 }}
+        {{- end }}
+---
+{{- end }}

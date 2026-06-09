@@ -1,0 +1,17 @@
+# helm-charts/app-dev/values.yaml
+global:
+  registry: ghcr.io
+
+services:
+  auth-service:
+    repository: thang2005hcmus/testcd/auth-service
+    tag: d5c4b864d7d8e767165c8505fd8b958c71a7b5d4
+  notification-service:
+    repository: thang2005hcmus/testcd/notification-service
+    tag: d5c4b864d7d8e767165c8505fd8b958c71a7b5d4
+  order-service:
+    repository: thang2005hcmus/testcd/order-service
+    tag: d5c4b864d7d8e767165c8505fd8b958c71a7b5d4
+  product-service:
+    repository: thang2005hcmus/testcd/product-service
+    tag: d5c4b864d7d8e767165c8505fd8b958c71a7b5d4

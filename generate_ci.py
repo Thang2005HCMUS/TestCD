@@ -2,13 +2,14 @@ import os
 
 # Danh sách các microservices và thông tin cấu hình riêng biệt
 services = [
-    {"name": "auth-service", "placeholder": "auth-image-placeholder", "has_mock": False},
-    {"name": "product-service", "placeholder": "product-image-placeholder", "has_mock": False},
-    {"name": "order-service", "placeholder": "order-image-placeholder", "has_mock": True},  # Cần pytest-mock
-    {"name": "notification-service", "placeholder": "notification-image-placeholder", "has_mock": False},
+    {"name": "auth-service", "has_mock": False},
+    {"name": "product-service", "has_mock": False},
+    {"name": "order-service", "has_mock": True},  # Cần pytest-mock
+    {"name": "notification-service", "has_mock": False},
 ]
 branch = "helm-dev"
-# Template chung cho tất cả các file CI Workflows
+
+# Template chung cho tất cả các file CI Workflows (Dùng Helm)
 workflow_template = """name: CI {service_title}
 
 on:
@@ -47,7 +48,6 @@ jobs:
         username: ${{{{ github.actor }}}}
         password: ${{{{ secrets.GITHUB_TOKEN }}}}
 
-    # ĐÃ SỬA TẠI ĐÂY: Dùng biến môi trường chuẩn của Bash ($GITHUB_REPOSITORY_LOWER,,) thay vì biểu thức GitHub Actions
     - name: Downcase REPO name
       run: |
         echo "REPO_LOWER=${{GITHUB_REPOSITORY_LOWER,,}}" >> $GITHUB_ENV
@@ -61,24 +61,22 @@ jobs:
         push: true
         tags: ghcr.io/${{{{ env.REPO_LOWER }}}}/{service_name}:${{{{ github.sha }}}}
 
-    - name: Setup Kustomize
-      uses: imranismail/setup-kustomize@v2
-
-    - name: Update Image Tag in Kustomize
+    # THAY ĐỔI Ở ĐÂY: Dùng yq để cập nhật values.yaml của Helm thay vì Kustomize
+    - name: Update Image Tag in Helm values.yaml
       run: |
-        cd k8s/environments/dev
-        kustomize edit set image {image_placeholder}=ghcr.io/${{{{ env.REPO_LOWER }}}}/{service_name}:${{{{ github.sha }}}}
+        yq -i '.services."{service_name}".repository = "ghcr.io/'"${{{{ env.REPO_LOWER }}}}"'/{service_name}"' helm-charts/app-dev/values.yaml
+        yq -i '.services."{service_name}".tag = "${{{{ github.sha }}}}"' helm-charts/app-dev/values.yaml
 
     - name: Commit and Push Manifest Changes
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
-        git add k8s/environments/dev/kustomization.yaml
+        git add helm-charts/app-dev/values.yaml
         
         # Chỉ commit nếu thực sự có sự thay đổi
-        git commit -m "chore(gitops): update {service_name} tag to ${{{{ github.sha }}}} [skip ci]" || echo "No changes to commit"
+        git commit -m "chore(gitops): update {service_name} helm tag to ${{{{ github.sha }}}} [skip ci]" || echo "No changes to commit"
         
-        # CHIẾN THUẬT: Vòng lặp kéo code mới về (rebase) rồi push, thử lại tối đa 5 lần nếu bị tranh giành
+        # CHIẾN THUẬT: Vòng lặp kéo code mới về (rebase) rồi push, thử lại tối đa 5 lần
         for i in {{1..5}}; do
           echo "Đang thử push lần $i..."
           git pull --rebase origin {branch_name}
@@ -87,7 +85,7 @@ jobs:
             exit 0
           fi
           echo "❌ Push thất bại do xung đột, đang đợi để thử lại..."
-          sleep $((RANDOM % 5 + 2)) # Nghỉ ngẫu nhiên từ 2-7 giây để tránh các job đâm sầm vào nhau lần nữa
+          sleep $((RANDOM % 5 + 2))
         done
         exit 1
 """
@@ -98,28 +96,21 @@ os.makedirs(output_dir, exist_ok=True)
 
 # Tiến hành sinh file tự động
 for svc in services:
-    # Định dạng tên hiển thị (Ví dụ: auth-service -> Auth Service)
     title = " ".join([word.capitalize() for word in svc["name"].split("-")])
-    
-    # Kiểm tra xem service này có cần cài thêm pytest-mock để test không
     mock_package = "pytest-mock" if svc["has_mock"] else ""
     
-    # Render nội dung từ template
     rendered_content = workflow_template.format(
         service_title=title,
         service_name=svc["name"],
-        image_placeholder=svc["placeholder"],
         mock_package=mock_package,
         branch_name=branch
     )
     
-    # Đường dẫn file đầu ra
     file_path = os.path.join(output_dir, f"ci-{svc['name']}.yaml")
     
-    # Ghi file
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(rendered_content)
         
-    print(f"✅ Đã sinh file cấu hình thành công: {file_path}")
+    print(f"✅ Đã cập nhật file CI chạy Helm: {file_path}")
 
-print("\n=== Hoàn thành! Toàn bộ 4 file CI đã nằm trong thư mục .github/workflows ===")
+print("\n=== Hoàn thành! Đã chuyển đổi toàn bộ Workflow sang cơ chế Helm ===")

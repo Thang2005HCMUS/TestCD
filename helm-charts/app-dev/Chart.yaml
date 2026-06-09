@@ -1,0 +1,10 @@
+apiVersion: v2
+name: app-dev
+description: A Helm chart for deploying microservices in the development environment
+type: application
+
+# Đây là phiên bản của chính cái Chart Helm này (tăng tiến khi bạn thay đổi cấu trúc template)
+version: 1.0.0
+
+# Đây là phiên bản của ứng dụng tổng (App Version)
+appVersion: "1.0.0"
