@@ -13,4 +13,4 @@ services:
     tag: f5b74cff6cfe537c1b7cfeda2eb5bc695577d453
   product-service:
     repository: ghcr.io/thang2005hcmus/testcd/product-service
-    tag: 513e97bc6fceb34b9e29418206e8483145033fde
+    tag: f5b74cff6cfe537c1b7cfeda2eb5bc695577d453
