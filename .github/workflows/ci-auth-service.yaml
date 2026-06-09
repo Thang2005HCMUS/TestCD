@@ -2,10 +2,10 @@ name: CI Auth Service
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "**" ]
     paths:
       - 'src/auth-service/**'
+      - ".github/workflows/ci-auth-service.yaml"
 
 jobs:
   test-build-deploy:

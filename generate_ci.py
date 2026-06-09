@@ -13,10 +13,10 @@ workflow_template = """name: CI {service_title}
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "**" ]
     paths:
       - 'src/{service_name}/**'
+      - ".github/workflows/ci-{service_name}.yaml"
 
 jobs:
   test-build-deploy:

@@ -2,10 +2,10 @@ name: CI Product Service
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "**" ]
     paths:
       - 'src/product-service/**'
+      - ".github/workflows/ci-product-service.yaml"
 
 jobs:
   test-build-deploy:

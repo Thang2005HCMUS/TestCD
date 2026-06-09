@@ -2,10 +2,10 @@ name: CI Order Service
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "**" ]
     paths:
       - 'src/order-service/**'
+      - ".github/workflows/ci-order-service.yaml"
 
 jobs:
   test-build-deploy:
