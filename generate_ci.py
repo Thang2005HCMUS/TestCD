@@ -7,7 +7,7 @@ services = [
     {"name": "order-service", "placeholder": "order-image-placeholder", "has_mock": True},  # Cần pytest-mock
     {"name": "notification-service", "placeholder": "notification-image-placeholder", "has_mock": False},
 ]
-branch = "kustomize-dev"
+branch = "helm-dev"
 # Template chung cho tất cả các file CI Workflows
 workflow_template = """name: CI {service_title}
 
