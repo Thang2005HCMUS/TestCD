@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: monitoring-ingress
-  namespace: observability # Cần nằm chung namespace với Grafana và Prometheus
+  namespace: testcd-observability # Cần nằm chung namespace với Grafana và Prometheus
   annotations:
     # Điền Ingress Class bạn đang dùng (Phổ biến nhất là nginx)
     kubernetes.io/ingress.class: "nginx"
