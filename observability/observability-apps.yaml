@@ -8,7 +8,7 @@ spec:
   source:
     chart: prometheus
     repoURL: https://prometheus-community.github.io/helm-charts
-    targetRevision: 25.27.0 # Chọn một version cụ thể để hệ thống ổn định
+    targetRevision: 25.27.0
     helm:
       values: |
         alertmanager:
@@ -18,12 +18,13 @@ spec:
             enabled: false
   destination:
     server: https://kubernetes.default.svc
-    namespace: testcd-observability # Đẩy vào namespace này
+    namespace: testcd-observability # Đồng bộ namespace theo hình của bạn
+  # --- THÊM KHỐI NÀY VÀO TỪNG CON ---
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-    createNamespace: true # Tự động tạo namespace 'observability' nếu chưa có
+    createNamespace: true
 
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -45,6 +46,7 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: testcd-observability
+  # --- THÊM KHỐI NÀY VÀO TỪNG CON ---
   syncPolicy:
     automated:
       prune: true
@@ -69,6 +71,7 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: testcd-observability
+  # --- THÊM KHỐI NÀY VÀO TỪNG CON ---
   syncPolicy:
     automated:
       prune: true
