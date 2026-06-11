@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-ingress
+  namespace: observability # Cần nằm chung namespace với Grafana và Prometheus
+  annotations:
+    # Điền Ingress Class bạn đang dùng (Phổ biến nhất là nginx)
+    kubernetes.io/ingress.class: "nginx"
+    # Tăng thời gian timeout đề phòng khi bạn query Log lớn trên Loki không bị lỗi 504
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+spec:
+  rules:
+  - host: grafana.local # Bạn có thể đổi thành tên miền mong muốn
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana-stack # Tên Service của Grafana do Helm tự tạo ra
+            port:
+              number: 80
