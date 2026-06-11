@@ -10,7 +10,7 @@ services:
     tag: b091b74529776e8565e09ad0d4554988a2939b90
   order-service:
     repository: ghcr.io/thang2005hcmus/testcd/order-service
-    tag: f48bc88a4141d2a2092a219d272ffe3b35926a28
+    tag: b091b74529776e8565e09ad0d4554988a2939b90
   product-service:
     repository: ghcr.io/thang2005hcmus/testcd/product-service
     tag: b091b74529776e8565e09ad0d4554988a2939b90
