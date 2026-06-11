@@ -1,0 +1,522 @@
+======script.py content ======:
+import os
+
+# File output
+OUTPUT_FILE = "content.txt"
+
+# Lấy thư mục hiện tại
+root_dir = os.getcwd()
+
+# Các file cần bỏ qua
+exclude_files = {OUTPUT_FILE}
+
+# Hàm đọc file text an toàn
+def read_file(filepath):
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            return f.read()
+    except UnicodeDecodeError:
+        try:
+            with open(filepath, "r", encoding="latin-1") as f:
+                return f.read()
+        except:
+            return "[Không thể đọc nội dung file]"
+    except Exception as e:
+        return f"[Lỗi khi đọc file: {e}]"
+
+# Ghi toàn bộ nội dung vào content.txt
+with open(OUTPUT_FILE, "w", encoding="utf-8") as output:
+    for foldername, subfolders, filenames in os.walk(root_dir):
+        for filename in filenames:
+            if filename in exclude_files:
+                continue
+
+            full_path = os.path.join(foldername, filename)
+
+            # Đường dẫn tương đối
+            relative_path = os.path.relpath(full_path, root_dir)
+
+            # Đọc nội dung file
+            content = read_file(full_path)
+
+            # Ghi ra file
+            output.write(f"======{relative_path} content ======:\n")
+            output.write(content)
+            output.write("\n\n")
+print()
+print(f"Đã ghi xong vào {OUTPUT_FILE}")
+
+======order-service/test_app.py content ======:
+from fastapi.testclient import TestClient
+import pytest
+from app import app
+
+client = TestClient(app)
+
+def test_health_check():
+    response = client.get("/healthz")
+    assert response.status_code == 200
+
+# Mock các cuộc gọi HTTP ra bên ngoài
+@pytest.mark.asyncio
+async def test_create_order_success(mocker):
+    # Giả lập Product Service trả về thông tin Laptop
+    mock_product_resp = mocker.Mock()
+    mock_product_resp.status_code = 200
+    mock_product_resp.json.return_value = {"name": "Laptop Gaming", "price": 1500}
+    
+    # Giả lập Notification Service trả về thành công
+    mock_notify_resp = mocker.Mock()
+    mock_notify_resp.status_code = 200
+
+    # Khởi tạo mock cho AsyncClient
+    mock_client = mocker.patch("httpx.AsyncClient", autospec=True)
+    mock_instance = mock_client.return_value.__aenter__.return_value
+    mock_instance.get.return_value = mock_product_resp
+    mock_instance.post.return_value = mock_notify_resp
+
+    # Chạy test
+    response = client.post("/orders", json={
+        "product_id": 1,
+        "quantity": 2,
+        "user_email": "test@gmail.com"
+    })
+    
+    assert response.status_code == 200
+    assert response.json()["order_status"] == "Success"
+    assert response.json()["total_price"] == 3000#
+
+======order-service/requirements.txt content ======:
+# Web Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Data Validation & Settings
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# HTTP Client (Rất cần cho Microservices gọi nhau)
+httpx==0.28.1
+
+# Production Metrics & Liveness/Readiness Check (Tốt cho K8s)
+prometheus-fastapi-instrumentator==7.0.0
+
+# Thêm vào cuối file requirements.txt cũ
+pytest==8.3.4
+
+======order-service/dockerfile content ======:
+# --- Giai đoạn 1: Builder ---
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Ngăn Python ghi các file .pyc và bật chế độ không buffer để log xuất hiện ngay lập tức
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Cài đặt các công cụ build nếu cần (với fastapi slim thì thường không cần, nhưng cứ để đề phòng)
+RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
+
+# Sao chép và cài đặt dependencies vào thư mục cục bộ của user
+COPY requirements.txt .
+RUN pipper=pip && $pipper install --no-cache-dir --user -r requirements.txt
+
+
+# --- Giai đoạn 2: Runtime (Image cuối cùng cực nhẹ) ---
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Lấy các thư viện đã cài đặt từ giai đoạn builder sang
+COPY --from=builder /root/.local /root/.local
+COPY . .
+
+# Cập nhật PATH để hệ thống nhận biết các gói đã cài ở /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+# Khởi chạy FastAPI bằng Uvicorn trên port 8000
+EXPOSE 8000
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+
+======order-service/app.py content ======:
+import os
+import httpx
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+app = FastAPI(title="Order Service")
+
+# K8s sẽ phân giải DNS nội bộ dạng http://<service-name>:<port>
+PRODUCT_SERVICE_URL = os.getenv("PRODUCT_SERVICE_URL", "http://product-service:8000")
+NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://notification-service:8000")
+
+class OrderRequest(BaseModel):
+    product_id: int
+    quantity: int
+    user_email: str
+
+@app.get("/healthz")
+def health_check():
+    return {"status": "healthy", "service": "order-service"}
+
+@app.post("/orders")#
+async def create_order(order: OrderRequest):
+    # 1. Gọi sang Product Service lấy thông tin sản phẩm
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(f"{PRODUCT_SERVICE_URL}/products/{order.product_id}")
+            if response.status_code == 404:
+                raise HTTPException(status_code=400, detail="Sản phẩm không tồn tại")
+            product_data = response.json()
+        except httpx.RequestError:
+            raise HTTPException(status_code=500, detail="Không thể kết nối tới Product Service")
+
+    # 2. Tính toán tổng tiền
+    total_price = product_data["price"] * order.quantity
+    
+    # 3. Gửi thông báo ngầm sang Notification Service (Fire and Forget)
+    async with httpx.AsyncClient() as client:
+        try:
+            await client.post(f"{NOTIFICATION_SERVICE_URL}/notify", json={
+                "email": order.user_email,
+                "message": f"Bạn đã đặt hàng thành công đơn hàng {product_data['name']}. Tổng tiền: ${total_price}"
+            })
+        except httpx.RequestError:
+            print("Cảnh báo: Không thể gửi thông báo, nhưng đơn hàng vẫn được xử lý.")
+
+    return {
+        "order_status": "Success",
+        "product_name": product_data["name"],
+        "total_price": total_price
+    }
+
+======order-service/change_trig.txt content ======:
+25
+
+======auth-service/test_app.py content ======:
+from fastapi.testclient import TestClient
+from app import app
+
+client = TestClient(app)
+
+def test_health_check():
+    response = client.get("/healthz")
+    assert response.status_code == 200
+    assert response.json() == {"status": "healthy", "service": "auth-service"}
+
+def test_login_success():
+    response = client.post("/login", json={"username": "admin", "password": "password"})
+    assert response.status_code == 200
+    assert "access_token" in response.json()
+
+def test_login_fail():
+    response = client.post("/login", json={"username": "wrong", "password": "password"})
+    assert response.status_code == 401
+
+======auth-service/requirements.txt content ======:
+# Web Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Data Validation & Settings
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# HTTP Client (Rất cần cho Microservices gọi nhau)
+httpx==0.28.1
+
+# Production Metrics & Liveness/Readiness Check (Tốt cho K8s)
+prometheus-fastapi-instrumentator==7.0.0
+
+# Thêm vào cuối file requirements.txt cũ
+pytest==8.3.4
+
+======auth-service/dockerfile content ======:
+# --- Giai đoạn 1: Builder ---
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Ngăn Python ghi các file .pyc và bật chế độ không buffer để log xuất hiện ngay lập tức
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Cài đặt các công cụ build nếu cần (với fastapi slim thì thường không cần, nhưng cứ để đề phòng)
+RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
+
+# Sao chép và cài đặt dependencies vào thư mục cục bộ của user
+COPY requirements.txt .
+RUN pipper=pip && $pipper install --no-cache-dir --user -r requirements.txt
+
+
+# --- Giai đoạn 2: Runtime (Image cuối cùng cực nhẹ) ---
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Lấy các thư viện đã cài đặt từ giai đoạn builder sang
+COPY --from=builder /root/.local /root/.local
+COPY . .
+
+# Cập nhật PATH để hệ thống nhận biết các gói đã cài ở /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+# Khởi chạy FastAPI bằng Uvicorn trên port 8000
+EXPOSE 8000
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+
+======auth-service/app.py content ======:
+import os
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+app = FastAPI(title="Auth Service")
+
+# Đọc cấu hình từ Environment Variable của K8s
+JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-default")
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.get("/healthz")
+def health_check():
+    return {"status": "healthy", "service": "auth-service"}
+
+@app.post("/login")
+def login(payload: LoginRequest):
+    if payload.username == "admin" and payload.password == "password":
+        return {
+            "access_token": f"mock-token-for-{payload.username}",
+            "token_type": "bearer"
+        }
+    raise HTTPException(status_code=401, detail="Sai tài khoản hoặc mật khẩu")
+
+@app.get("/verify/{token}")
+def verify_token(token: str):
+    if token.startswith("mock-token-"):
+        return {"valid": True, "user": token.replace("mock-token-for-", "")}
+    return {"valid": False}
+
+======auth-service/hehe.txt content ======:
+test ci
+
+
+======auth-service/change_trig.txt content ======:
+25
+
+======product-service/test_app.py content ======:
+from fastapi.testclient import TestClient
+from app import app
+
+client = TestClient(app)
+
+def test_health_check():
+    response = client.get("/healthz")
+    assert response.status_code == 200
+
+def test_get_all_products():
+    response = client.get("/products")
+    assert response.status_code == 200
+    assert len(response.json()) == 3
+
+def test_get_product_detail_success():
+    response = client.get("/products/1")
+    assert response.status_code == 200
+    assert response.json()["name"] == "Laptop Gaming"
+
+def test_get_product_detail_not_found():
+    response = client.get("/products/999")
+    assert response.status_code == 404
+    #
+
+======product-service/requirements.txt content ======:
+# Web Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Data Validation & Settings
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# HTTP Client (Rất cần cho Microservices gọi nhau)
+httpx==0.28.1
+
+# Production Metrics & Liveness/Readiness Check (Tốt cho K8s)
+prometheus-fastapi-instrumentator==7.0.0
+
+# Thêm vào cuối file requirements.txt cũ
+pytest==8.3.4
+
+======product-service/dockerfile content ======:
+# --- Giai đoạn 1: Builder ---
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Ngăn Python ghi các file .pyc và bật chế độ không buffer để log xuất hiện ngay lập tức
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Cài đặt các công cụ build nếu cần (với fastapi slim thì thường không cần, nhưng cứ để đề phòng)
+RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
+
+# Sao chép và cài đặt dependencies vào thư mục cục bộ của user
+COPY requirements.txt .
+RUN pipper=pip && $pipper install --no-cache-dir --user -r requirements.txt
+
+
+# --- Giai đoạn 2: Runtime (Image cuối cùng cực nhẹ) ---
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Lấy các thư viện đã cài đặt từ giai đoạn builder sang
+COPY --from=builder /root/.local /root/.local
+COPY . .
+
+# Cập nhật PATH để hệ thống nhận biết các gói đã cài ở /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+# Khởi chạy FastAPI bằng Uvicorn trên port 8000
+EXPOSE 8000
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+
+======product-service/app.py content ======:
+from fastapi import FastAPI, HTTPException
+
+app = FastAPI(title="Product Service")
+
+# Data giả lập
+PRODUCTS = {
+    1: {"name": "Laptop Gaming", "price": 1500, "stock": 10},
+    2: {"name": "Bàn phím cơ", "price": 100, "stock": 50},
+    3: {"name": "Chuột không dây", "price": 50, "stock": 5}
+}
+
+@app.get("/healthz")
+def health_check():
+    return {"status": "healthy", "service": "product-service"}
+
+@app.get("/products")
+def get_all_products():
+    return list(PRODUCTS.values())
+
+@app.get("/products/{product_id}")
+def get_product(product_id: int):
+    product = PRODUCTS.get(product_id)
+    if not product:#
+        raise HTTPException(status_code=404, detail="Không tìm thấy sản phẩm")
+    return product
+
+======product-service/change_trig.txt content ======:
+25
+
+======notification-service/test_app.py content ======:
+from fastapi.testclient import TestClient
+from app import app
+
+client = TestClient(app)
+
+def test_health_check():
+    response = client.get("/healthz")
+    assert response.status_code == 200
+
+def test_send_notification():
+    response = client.post("/notify", json={
+        "email": "customer@gmail.com",
+        "message": "Đơn hàng đã giao"
+    })
+    assert response.status_code == 200
+    assert response.json()["status"] == "Sent"#
+
+======notification-service/requirements.txt content ======:
+# Web Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Data Validation & Settings
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# HTTP Client (Rất cần cho Microservices gọi nhau)
+httpx==0.28.1
+
+# Production Metrics & Liveness/Readiness Check (Tốt cho K8s)
+prometheus-fastapi-instrumentator==7.0.0
+
+# Thêm vào cuối file requirements.txt cũ
+pytest==8.3.4
+
+======notification-service/dockerfile content ======:
+# --- Giai đoạn 1: Builder ---
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Ngăn Python ghi các file .pyc và bật chế độ không buffer để log xuất hiện ngay lập tức
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Cài đặt các công cụ build nếu cần (với fastapi slim thì thường không cần, nhưng cứ để đề phòng)
+RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
+
+# Sao chép và cài đặt dependencies vào thư mục cục bộ của user
+COPY requirements.txt .
+RUN pipper=pip && $pipper install --no-cache-dir --user -r requirements.txt
+
+
+# --- Giai đoạn 2: Runtime (Image cuối cùng cực nhẹ) ---
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Lấy các thư viện đã cài đặt từ giai đoạn builder sang
+COPY --from=builder /root/.local /root/.local
+COPY . .
+
+# Cập nhật PATH để hệ thống nhận biết các gói đã cài ở /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+# Khởi chạy FastAPI bằng Uvicorn trên port 8000
+EXPOSE 8000
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+
+======notification-service/app.py content ======:
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI(title="Notification Service")
+
+class NotificationRequest(BaseModel):
+    email: str
+    message: str
+
+@app.get("/healthz")
+def health_check():
+    return {"status": "healthy", "service": "notification-service"}
+
+@app.post("/notify")
+def send_notification(payload: NotificationRequest):
+    # Giả lập logic gửi email thực tế
+    print(f"[EMAIL SENT] Gửi tới {payload.email}: {payload.message}")
+    return {
+        "status": "Sent",
+        "to": payload.email
+    }
+
+======notification-service/change_trig.txt content ======:
+25
+

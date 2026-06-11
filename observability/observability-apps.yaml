@@ -1,0 +1,76 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-stack
+  namespace: argocd
+spec:
+  project: default
+  source:
+    chart: prometheus
+    repoURL: https://prometheus-community.github.io/helm-charts
+    targetRevision: 25.27.0 # Chọn một version cụ thể để hệ thống ổn định
+    helm:
+      values: |
+        alertmanager:
+          enabled: false
+        server:
+          persistentVolume:
+            enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: testcd-observability # Đẩy vào namespace này
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    createNamespace: true # Tự động tạo namespace 'observability' nếu chưa có
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki-stack
+  namespace: argocd
+spec:
+  project: default
+  source:
+    chart: loki-stack
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 2.10.2
+    helm:
+      values: |
+        loki:
+          persistence:
+            enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: testcd-observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    createNamespace: true
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana-stack
+  namespace: argocd
+spec:
+  project: default
+  source:
+    chart: grafana
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 7.3.0
+    helm:
+      values: |
+        adminPassword: "admin"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: testcd-observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    createNamespace: true
