@@ -20,13 +20,13 @@ def mock_kafka_consumer(mocker):
     return mock_instance
 
 def test_health_check():
-    response = client.get("/healthz") [cite: 24]
-    assert response.status_code == 200 [cite: 24]
+    response = client.get("/healthz") 
+    assert response.status_code == 200 
 
 def test_send_notification():
-    response = client.post("/notify", json={ [cite: 24]
-        "email": "customer@gmail.com", [cite: 24]
-        "message": "Đơn hàng đã giao" [cite: 24]
-    }) [cite: 24]
-    assert response.status_code == 200 [cite: 24]
-    assert response.json()["status"] == "Sent" [cite: 24]
+    response = client.post("/notify", json={ 
+        "email": "customer@gmail.com", 
+        "message": "Đơn hàng đã giao" 
+    }) 
+    assert response.status_code == 200 
+    assert response.json()["status"] == "Sent" 

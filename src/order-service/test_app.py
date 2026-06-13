@@ -26,22 +26,22 @@ def test_health_check():
 @pytest.mark.asyncio
 async def test_create_order_success(mocker):
     # Giả lập Product Service trả về thông tin Laptop 
-    mock_product_resp = mocker.Mock() [cite: 5]
-    mock_product_resp.status_code = 200 [cite: 5]
-    mock_product_resp.json.return_value = {"name": "Laptop Gaming", "price": 1500} [cite: 5]
+    mock_product_resp = mocker.Mock() 
+    mock_product_resp.status_code = 200 
+    mock_product_resp.json.return_value = {"name": "Laptop Gaming", "price": 1500} 
     
     # Khởi tạo mock cho AsyncClient của httpx 
-    mock_client = mocker.patch("httpx.AsyncClient", autospec=True) [cite: 5]
-    mock_instance = mock_client.return_value.__aenter__.return_value [cite: 5]
-    mock_instance.get.return_value = mock_product_resp [cite: 5]
+    mock_client = mocker.patch("httpx.AsyncClient", autospec=True) 
+    mock_instance = mock_client.return_value.__aenter__.return_value 
+    mock_instance.get.return_value = mock_product_resp 
 
     # Chạy test API tạo đơn hàng
-    response = client.post("/orders", json={ [cite: 6]
-        "product_id": 1, [cite: 6]
-        "quantity": 2, [cite: 6]
-        "user_email": "test@gmail.com" [cite: 6]
-    }) [cite: 6]
+    response = client.post("/orders", json={ 
+        "product_id": 1, 
+        "quantity": 2, 
+        "user_email": "test@gmail.com" 
+    }) 
     
-    assert response.status_code == 200 [cite: 6]
-    assert response.json()["order_status"] == "Success" [cite: 6]
-    assert response.json()["total_price"] == 3000 [cite: 6]
+    assert response.status_code == 200 
+    assert response.json()["order_status"] == "Success" 
+    assert response.json()["total_price"] == 3000 
