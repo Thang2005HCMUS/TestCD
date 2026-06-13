@@ -19,7 +19,9 @@ spec:
         image: debezium/connect:2.7.3.Final
         ports:
         - containerPort: 8083
+          name: api
         - containerPort: 5005
+          name: debug
         env:
         - name: BOOTSTRAP_SERVERS
           value: "kafka-service:9092"
@@ -29,6 +31,12 @@ spec:
           value: "kafka_connect_configs"
         - name: OFFSET_STORAGE_TOPIC
           value: "kafka_connect_offsets"
+        - name: STATUS_STORAGE_TOPIC
+          value: "kafka_connect_statuses"
+        - name: KEY_CONVERTER
+          value: "org.apache.kafka.connect.json.JsonConverter"
+        - name: VALUE_CONVERTER
+          value: "org.apache.kafka.connect.json.JsonConverter"
 ---
 apiVersion: v1
 kind: Service
@@ -38,5 +46,6 @@ spec:
   ports:
   - port: 8083
     targetPort: 8083
+    name: api
   selector:
     app: kafka-connect

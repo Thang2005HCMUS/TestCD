@@ -19,9 +19,12 @@ spec:
         image: provectuslabs/kafka-ui:latest
         ports:
         - containerPort: 8080
+          name: http
         env:
         - name: DYNAMIC_CONFIG_ENABLED
           value: "true"
+        - name: KAFKA_CLUSTERS_0_NAME
+          value: "local-k8s-cluster"
         - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
           value: "kafka-service:9092"
 ---
@@ -30,9 +33,10 @@ kind: Service
 metadata:
   name: kafka-ui-service
 spec:
-  type: NodePort # Hoặc dùng ClusterIP kết hợp Ingress tùy kiến trúc mạng của bạn
+  type: NodePort
   ports:
   - port: 8089
     targetPort: 8080
+    name: http
   selector:
     app: kafka-ui
