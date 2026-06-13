@@ -19,4 +19,4 @@ services:
         value: "kafka-service.testcd.svc.cluster.local:9092"
   product-service:
     repository: ghcr.io/thang2005hcmus/testcd/product-service
-    tag: 4bbb8bffbbc3c1bd08f3520925aa2b0bd79a2698
+    tag: 3b4ebf3514c0450de86e0e72d3ce94fe3dad1c4e
