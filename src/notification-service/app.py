@@ -21,8 +21,8 @@ def health_check():
 @app.post("/notify")
 def send_notification(payload: NotificationRequest):
     # Giữ nguyên API cũ để tương thích ngược nếu cần 
-    print(f"[API HTTP SENT] Gửi tới {payload.email}: {payload.message}") [cite: 28]
-    return {"status": "Sent", "to": payload.email} [cite: 28]
+    print(f"[API HTTP SENT] Gửi tới {payload.email}: {payload.message}") 
+    return {"status": "Sent", "to": payload.email} 
 
 # Hàm chạy ngầm lắng nghe Kafka Event
 async def consume_kafka_events():
