@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kafka-infra
+description: Hạ tầng Message Broker Kafka dành cho môi trường Dev
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
