@@ -13,7 +13,7 @@ services:
         value: "kafka-service.testcd.svc.cluster.local:9092" # Sửa 'default' thành namespace bạn triển khai kafka
   order-service:
     repository: ghcr.io/thang2005hcmus/testcd/order-service
-    tag: 3b4ebf3514c0450de86e0e72d3ce94fe3dad1c4e
+    tag: 337872cfbcb365ae17c23a35f0f9310f85922acb
     env:
       - name: KAFKA_BOOTSTRAP_SERVERS
         value: "kafka-service.testcd.svc.cluster.local:9092"
