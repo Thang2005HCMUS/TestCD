@@ -18,7 +18,7 @@ on:
   push:
     branches: [ "**" ]
     paths:
-      - './src/{service_name}/**'
+      - 'src/{service_name}/**'
       - ".github/workflows/ci-{service_name}.yaml"
 
 jobs:

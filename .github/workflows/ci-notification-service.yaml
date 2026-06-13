@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "**" ]
     paths:
-      - './src/notification-service/**'
+      - 'src/notification-service/**'
       - ".github/workflows/ci-notification-service.yaml"
 
 jobs:

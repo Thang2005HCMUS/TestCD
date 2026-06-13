@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "**" ]
     paths:
-      - './src/auth-service/**'
+      - 'src/auth-service/**'
       - ".github/workflows/ci-auth-service.yaml"
 
 jobs:
