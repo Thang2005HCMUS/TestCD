@@ -49,7 +49,7 @@ async def create_order(order: OrderRequest):
                 raise HTTPException(status_code=400, detail="Sản phẩm không tồn tại")
             product_data = response.json()
         except httpx.RequestError:
-            raise HTTPException(status_code=500, detail="Không thể kết nối tới Product Service") [cite: 11]
+            raise HTTPException(status_code=500, detail="Không thể kết nối tới Product Service") 
 
     # 2. Tính toán tổng tiền [cite: 12]
     total_price = product_data["price"] * order.quantity
@@ -57,7 +57,7 @@ async def create_order(order: OrderRequest):
     # 3. Gửi Event vào Kafka thay vì gọi HTTP direct sang Notification Service [cite: 12]
     event_message = {
         "email": order.user_email,
-        "message": f"Bạn đã đặt hàng thành công đơn hàng {product_data['name']}. Tổng tiền: ${total_price}" [cite: 12, 13]
+        "message": f"Bạn đã đặt hàng thành công đơn hàng {product_data['name']}. Tổng tiền: ${total_price}" 
     }
     
     if producer:
