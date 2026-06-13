@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zookeeper
+  labels:
+    app: zookeeper
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+      - name: zookeeper
+        image: debezium/zookeeper:2.7.3.Final
+        ports:
+        - containerPort: 2181
+          name: client
+        - containerPort: 2888
+          name: peer
+        - containerPort: 3888
+          name: leader-election
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-service
+spec:
+  ports:
+  - port: 2181
+    targetPort: 2181
+  selector:
+    app: zookeeper

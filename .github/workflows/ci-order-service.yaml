@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "**" ]
     paths:
-      - 'src/order-service/**'
+      - 'order-service/**'
       - ".github/workflows/ci-order-service.yaml"
 
 jobs:
@@ -25,7 +25,7 @@ jobs:
 
     - name: Install Dependencies & Run Tests
       run: |
-        cd src/order-service
+        cd crc/order-service
         pip install --no-cache-dir -r requirements.txt pytest pytest-mock
         pytest test_app.py
 
@@ -45,11 +45,11 @@ jobs:
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v5
       with:
-        context: ./src/order-service
+        context: ./order-service
         push: true
         tags: ghcr.io/${{ env.REPO_LOWER }}/order-service:${{ github.sha }}
 
-    # THAY ĐỔI Ở ĐÂY: Dùng yq để cập nhật values.yaml của Helm thay vì Kustomize
+    # Dùng yq để cập nhật values.yaml của Helm
     - name: Update Image Tag in Helm values.yaml
       run: |
         yq -i '.services."order-service".repository = "ghcr.io/'"${{ env.REPO_LOWER }}"'/order-service"' helm-charts/app-dev/values.yaml

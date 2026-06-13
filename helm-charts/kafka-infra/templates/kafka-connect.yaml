@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-connect
+  labels:
+    app: kafka-connect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-connect
+  template:
+    metadata:
+      labels:
+        app: kafka-connect
+    spec:
+      containers:
+      - name: kafka-connect
+        image: debezium/connect:2.7.3.Final
+        ports:
+        - containerPort: 8083
+        - containerPort: 5005
+        env:
+        - name: BOOTSTRAP_SERVERS
+          value: "kafka-service:9092"
+        - name: GROUP_ID
+          value: "1"
+        - name: CONFIG_STORAGE_TOPIC
+          value: "kafka_connect_configs"
+        - name: OFFSET_STORAGE_TOPIC
+          value: "kafka_connect_offsets"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-connect-service
+spec:
+  ports:
+  - port: 8083
+    targetPort: 8083
+  selector:
+    app: kafka-connect

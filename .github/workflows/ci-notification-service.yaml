@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "**" ]
     paths:
-      - 'src/notification-service/**'
+      - 'notification-service/**'
       - ".github/workflows/ci-notification-service.yaml"
 
 jobs:
@@ -25,8 +25,8 @@ jobs:
 
     - name: Install Dependencies & Run Tests
       run: |
-        cd src/notification-service
-        pip install --no-cache-dir -r requirements.txt pytest 
+        cd crc/notification-service
+        pip install --no-cache-dir -r requirements.txt pytest pytest-mock
         pytest test_app.py
 
     - name: Log in to GHCR
@@ -45,11 +45,11 @@ jobs:
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v5
       with:
-        context: ./src/notification-service
+        context: ./notification-service
         push: true
         tags: ghcr.io/${{ env.REPO_LOWER }}/notification-service:${{ github.sha }}
 
-    # THAY ĐỔI Ở ĐÂY: Dùng yq để cập nhật values.yaml của Helm thay vì Kustomize
+    # Dùng yq để cập nhật values.yaml của Helm
     - name: Update Image Tag in Helm values.yaml
       run: |
         yq -i '.services."notification-service".repository = "ghcr.io/'"${{ env.REPO_LOWER }}"'/notification-service"' helm-charts/app-dev/values.yaml

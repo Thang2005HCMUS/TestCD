@@ -1,22 +1,24 @@
 import os
 
 # Danh sách các microservices và thông tin cấu hình riêng biệt
+# Cập nhật: Cả order-service và notification-service đều cần mock để test phần liên quan đến Kafka
 services = [
     {"name": "auth-service", "has_mock": False},
     {"name": "product-service", "has_mock": False},
-    {"name": "order-service", "has_mock": True},  # Cần pytest-mock
-    {"name": "notification-service", "has_mock": False},
+    {"name": "order-service", "has_mock": True},        # Cần pytest-mock cho Product Service & Kafka[cite: 5]
+    {"name": "notification-service", "has_mock": True}, # Cần pytest-mock cho việc lắng nghe Kafka
 ]
 branch = "helm-dev"
 
 # Template chung cho tất cả các file CI Workflows (Dùng Helm)
+# ĐÃ SỬA: Thay đổi đường dẫn từ 'src/{service_name}' thành '{service_name}' cho đúng cấu trúc thực tế[cite: 5]
 workflow_template = """name: CI {service_title}
 
 on:
   push:
     branches: [ "**" ]
     paths:
-      - 'src/{service_name}/**'
+      - '{service_name}/**'
       - ".github/workflows/ci-{service_name}.yaml"
 
 jobs:
@@ -37,7 +39,7 @@ jobs:
 
     - name: Install Dependencies & Run Tests
       run: |
-        cd src/{service_name}
+        cd crc/{service_name}
         pip install --no-cache-dir -r requirements.txt pytest {mock_package}
         pytest test_app.py
 
@@ -57,11 +59,11 @@ jobs:
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v5
       with:
-        context: ./src/{service_name}
+        context: ./{service_name}
         push: true
         tags: ghcr.io/${{{{ env.REPO_LOWER }}}}/{service_name}:${{{{ github.sha }}}}
 
-    # THAY ĐỔI Ở ĐÂY: Dùng yq để cập nhật values.yaml của Helm thay vì Kustomize
+    # Dùng yq để cập nhật values.yaml của Helm
     - name: Update Image Tag in Helm values.yaml
       run: |
         yq -i '.services."{service_name}".repository = "ghcr.io/'"${{{{ env.REPO_LOWER }}}}"'/{service_name}"' helm-charts/app-dev/values.yaml
