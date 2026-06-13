@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "**" ]
     paths:
-      - 'auth-service/**'
+      - './src/auth-service/**'
       - ".github/workflows/ci-auth-service.yaml"
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v5
       with:
-        context: ./auth-service
+        context: ./src/auth-service
         push: true
         tags: ghcr.io/${{ env.REPO_LOWER }}/auth-service:${{ github.sha }}
 

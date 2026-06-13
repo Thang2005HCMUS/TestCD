@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "**" ]
     paths:
-      - 'notification-service/**'
+      - './src/notification-service/**'
       - ".github/workflows/ci-notification-service.yaml"
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v5
       with:
-        context: ./notification-service
+        context: ./src/notification-service
         push: true
         tags: ghcr.io/${{ env.REPO_LOWER }}/notification-service:${{ github.sha }}
 

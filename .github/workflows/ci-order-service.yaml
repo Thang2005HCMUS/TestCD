@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "**" ]
     paths:
-      - 'order-service/**'
+      - './src/order-service/**'
       - ".github/workflows/ci-order-service.yaml"
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v5
       with:
-        context: ./order-service
+        context: ./src/order-service
         push: true
         tags: ghcr.io/${{ env.REPO_LOWER }}/order-service:${{ github.sha }}
 

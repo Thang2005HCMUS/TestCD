@@ -11,14 +11,14 @@ services = [
 branch = "helm-dev"
 
 # Template chung cho tất cả các file CI Workflows (Dùng Helm)
-# ĐÃ SỬA: Thay đổi đường dẫn từ 'src/{service_name}' thành '{service_name}' cho đúng cấu trúc thực tế[cite: 5]
+
 workflow_template = """name: CI {service_title}
 
 on:
   push:
     branches: [ "**" ]
     paths:
-      - '{service_name}/**'
+      - './src/{service_name}/**'
       - ".github/workflows/ci-{service_name}.yaml"
 
 jobs:
@@ -59,7 +59,7 @@ jobs:
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v5
       with:
-        context: ./{service_name}
+        context: ./src/{service_name}
         push: true
         tags: ghcr.io/${{{{ env.REPO_LOWER }}}}/{service_name}:${{{{ github.sha }}}}
 
