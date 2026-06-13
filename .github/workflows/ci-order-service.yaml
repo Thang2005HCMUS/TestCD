@@ -25,7 +25,7 @@ jobs:
 
     - name: Install Dependencies & Run Tests
       run: |
-        cd crc/order-service
+        cd src/order-service
         pip install --no-cache-dir -r requirements.txt pytest pytest-mock
         pytest test_app.py
 

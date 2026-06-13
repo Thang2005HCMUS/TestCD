@@ -39,7 +39,7 @@ jobs:
 
     - name: Install Dependencies & Run Tests
       run: |
-        cd crc/{service_name}
+        cd src/{service_name}
         pip install --no-cache-dir -r requirements.txt pytest {mock_package}
         pytest test_app.py
 

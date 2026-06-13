@@ -25,7 +25,7 @@ jobs:
 
     - name: Install Dependencies & Run Tests
       run: |
-        cd crc/auth-service
+        cd src/auth-service
         pip install --no-cache-dir -r requirements.txt pytest 
         pytest test_app.py
 
