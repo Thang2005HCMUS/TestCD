@@ -4,7 +4,7 @@ global:
 services:
   auth-service:
     repository: ghcr.io/thang2005hcmus/testcd/auth-service
-    tag: 3b4ebf3514c0450de86e0e72d3ce94fe3dad1c4e
+    tag: 337872cfbcb365ae17c23a35f0f9310f85922acb
   notification-service:
     repository: ghcr.io/thang2005hcmus/testcd/notification-service
     tag: b091b74529776e8565e09ad0d4554988a2939b90
