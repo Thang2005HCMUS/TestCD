@@ -1,0 +1,1 @@
+docker rmi $(docker images --format "{{.Repository}}:{{.Tag}} {{.ID}}" | grep -E "auth|notification|order|product" | awk '{print $2}')
