@@ -52,3 +52,6 @@ helm upgrade arc-runner-set \
     --set template.spec.volumes[0].emptyDir=\{\} \
     oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
 ```
+```bash
+helm install arc-runner-set --namespace arc-systems -f runner-values.yaml oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+```
