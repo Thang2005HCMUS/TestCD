@@ -1,13 +1,15 @@
 import os
 
+# Danh sách các microservices và thông tin cấu hình riêng biệt [cite: 5]
 services = [
     {"name": "auth-service", "has_mock": False},
     {"name": "product-service", "has_mock": False},
-    {"name": "order-service", "has_mock": True},        
-    {"name": "notification-service", "has_mock": True}, 
+    {"name": "order-service", "has_mock": True},        # Cần pytest-mock cho Product Service & Kafka [cite: 5]
+    {"name": "notification-service", "has_mock": True}, # Cần pytest-mock cho việc lắng nghe Kafka [cite: 5]
 ]
 branch = "hybrid-helm-dev"
 
+# Template chung cho tất cả các file CI Workflows (Dùng Helm kết hợp Hybrid Test tại K8s Local)
 workflow_template = """name: CI {service_title}
 
 on:
@@ -68,7 +70,7 @@ jobs:
   # JOB 2: CHẠY TẠI K8S LOCAL QUA ARC (INTEGRATION TEST)
   # ==========================================
   integration-test:
-    runs-on: arc-runner-set
+    runs-on: my-k8s-runner
     needs: build-and-push
     steps:
     - name: Checkout Code
@@ -85,19 +87,33 @@ jobs:
       env:
         GITHUB_REPOSITORY_LOWER: ${{{{ github.repository }}}}
 
+    # BƯỚC QUAN TRỌNG: Trang bị chiếc điện thoại "Kubectl" và "Helm" vào bên trong Pod Runner nội bộ
+    - name: Install Kubernetes CLI Tools inside Pod Runner
+      run: |
+        echo "📥 Đang tải Kubectl nội bộ cho hệ điều hành của Pod..."
+        curl -LO "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        
+        echo "📥 Đang tải Helm nội bộ cho hệ điều hành của Pod..."
+        curl -s https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash -s -- --no-sudo
+        
+        # Đưa đường dẫn chứa file thực thi vào GITHUB_PATH để các bước sau gọi trực tiếp được luôn
+        echo "${{{{ github.workspace }}}}" >> $GITHUB_PATH
+        echo "/usr/local/bin" >> $GITHUB_PATH
+
     - name: Setup Ephemeral Environment & Run Integration Test
       run: |
         # Đặt tên Namespace biệt lập tránh trùng lặp giữa các luồng Monorepo chạy song song
         NS="test-{service_name}-${{{{ github.run_id }}}}-${{{{ github.run_attempt }}}}"
         echo "Namespace tạm thời: $NS"
         
-        # Tạo namespace độc lập
+        # Tạo namespace độc lập bằng chính chiếc điện thoại vừa cài trong Pod
         kubectl create namespace $NS
         
-        # Cài đặt hạ tầng Kafka/Zookeeper tạm thời phục vụ đợt test
+        # Cài đặt hạ tầng Kafka/Zookeeper tạm thời phục vụ riêng cho đợt test này
         helm install kafka-test ./helm-charts/kafka-infra --namespace $NS
         
-        # Đợi Kafka cluster sẵn sàng hoạt động
+        # Đợi Kafka cluster sẵn sàng hoạt động hoàn toàn
         kubectl rollout status deployment/kafka --namespace $NS --timeout=90s
         
         # Cài đặt toàn bộ ứng dụng Microservices (Inject cái Tag Image vừa build ở Job 1 vào)
@@ -107,10 +123,10 @@ jobs:
           --set services.notification-service.env[0].value="kafka-service.$NS.svc.cluster.local:9092" \
           --set services.order-service.env[0].value="kafka-service.$NS.svc.cluster.local:9092"
 
-        # Đợi các pod microservices lên đều
+        # Đợi các pod microservices lên trạng thái Ready đều đặn
         kubectl rollout status deployment/{service_name} --namespace $NS --timeout=60s
 
-        # Tiến hành chạy file Integration Test thực tế hướng vào Endpoint của K8s Service nội bộ
+        # Tiến hành chạy file Integration Test hướng vào Endpoint mạng nội bộ của cụm Minikube
         pip install pytest httpx
         pytest src/{service_name}/integration_test.py --ns=$NS
         
@@ -119,9 +135,8 @@ jobs:
       if: always()
       run: |
         NS="test-{service_name}-${{{{ github.run_id }}}}-${{{{ github.run_attempt }}}}"
-        echo "🧹 Đang dọn dẹp triệt để namespace: $NS"
+        echo "🧹 Đang dọn dẹp triệt để namespace tạm: $NS"
         kubectl delete namespace $NS --ignore-not-found=true
-        rm -rf ${{{{ github.workspace }}}}/*
 
   # ==========================================
   # JOB 3: QUAY LẠI CLOUD (SỬA TAG FILE MANIFEST CHÍNH THỨC)
@@ -167,9 +182,11 @@ jobs:
         exit 1
 """
 
+# Thư mục đích để lưu file YAML
 output_dir = ".github/workflows"
 os.makedirs(output_dir, exist_ok=True)
 
+# Tiến hành sinh file tự động [cite: 5]
 for svc in services:
     title = " ".join([word.capitalize() for word in svc["name"].split("-")])
     mock_package = "pytest-mock" if svc["has_mock"] else ""
@@ -182,7 +199,10 @@ for svc in services:
     )
     
     file_path = os.path.join(output_dir, f"ci-{svc['name']}.yaml")
+    
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(rendered_content)
         
     print(f"✅ Đã cập nhật file Hybrid CI chạy Helm: {file_path}")
+
+print("\n=== Hoàn thành! Đã chuyển đổi toàn bộ Workflow sang cơ chế Helm ===")

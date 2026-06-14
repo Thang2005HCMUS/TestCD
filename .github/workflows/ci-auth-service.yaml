@@ -58,7 +58,7 @@ jobs:
   # JOB 2: CHẠY TẠI K8S LOCAL QUA ARC (INTEGRATION TEST)
   # ==========================================
   integration-test:
-    runs-on: arc-runner-set
+    runs-on: my-k8s-runner
     needs: build-and-push
     steps:
     - name: Checkout Code
@@ -75,28 +75,42 @@ jobs:
       env:
         GITHUB_REPOSITORY_LOWER: ${{ github.repository }}
 
+    # BƯỚC QUAN TRỌNG: Trang bị chiếc điện thoại "Kubectl" và "Helm" vào bên trong Pod Runner nội bộ
+    - name: Install Kubernetes CLI Tools inside Pod Runner
+      run: |
+        echo "📥 Đang tải Kubectl nội bộ cho hệ điều hành của Pod..."
+        curl -LO "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        
+        echo "📥 Đang tải Helm nội bộ cho hệ điều hành của Pod..."
+        curl -s https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash -s -- --no-sudo
+        
+        # Đưa đường dẫn chứa file thực thi vào GITHUB_PATH để các bước sau gọi trực tiếp được luôn
+        echo "${{ github.workspace }}" >> $GITHUB_PATH
+        echo "/usr/local/bin" >> $GITHUB_PATH
+
     - name: Setup Ephemeral Environment & Run Integration Test
       run: |
         # Đặt tên Namespace biệt lập tránh trùng lặp giữa các luồng Monorepo chạy song song
         NS="test-auth-service-${{ github.run_id }}-${{ github.run_attempt }}"
         echo "Namespace tạm thời: $NS"
         
-        # Tạo namespace độc lập
+        # Tạo namespace độc lập bằng chính chiếc điện thoại vừa cài trong Pod
         kubectl create namespace $NS
         
-        # Cài đặt hạ tầng Kafka/Zookeeper tạm thời phục vụ đợt test
+        # Cài đặt hạ tầng Kafka/Zookeeper tạm thời phục vụ riêng cho đợt test này
         helm install kafka-test ./helm-charts/kafka-infra --namespace $NS
         
-        # Đợi Kafka cluster sẵn sàng hoạt động
+        # Đợi Kafka cluster sẵn sàng hoạt động hoàn toàn
         kubectl rollout status deployment/kafka --namespace $NS --timeout=90s
         
         # Cài đặt toàn bộ ứng dụng Microservices (Inject cái Tag Image vừa build ở Job 1 vào)
         helm install app-test ./helm-charts/app-dev --namespace $NS           --set services.auth-service.repository=ghcr.io/${{ env.REPO_LOWER }}/auth-service           --set services.auth-service.tag=${{ github.sha }}           --set services.notification-service.env[0].value="kafka-service.$NS.svc.cluster.local:9092"           --set services.order-service.env[0].value="kafka-service.$NS.svc.cluster.local:9092"
 
-        # Đợi các pod microservices lên đều
+        # Đợi các pod microservices lên trạng thái Ready đều đặn
         kubectl rollout status deployment/auth-service --namespace $NS --timeout=60s
 
-        # Tiến hành chạy file Integration Test thực tế hướng vào Endpoint của K8s Service nội bộ
+        # Tiến hành chạy file Integration Test hướng vào Endpoint mạng nội bộ của cụm Minikube
         pip install pytest httpx
         pytest src/auth-service/integration_test.py --ns=$NS
         
@@ -105,9 +119,8 @@ jobs:
       if: always()
       run: |
         NS="test-auth-service-${{ github.run_id }}-${{ github.run_attempt }}"
-        echo "🧹 Đang dọn dẹp triệt để namespace: $NS"
+        echo "🧹 Đang dọn dẹp triệt để namespace tạm: $NS"
         kubectl delete namespace $NS --ignore-not-found=true
-        rm -rf ${{ github.workspace }}/*
 
   # ==========================================
   # JOB 3: QUAY LẠI CLOUD (SỬA TAG FILE MANIFEST CHÍNH THỨC)
