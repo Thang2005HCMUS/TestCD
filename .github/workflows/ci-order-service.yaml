@@ -75,53 +75,46 @@ jobs:
       env:
         GITHUB_REPOSITORY_LOWER: ${{ github.repository }}
 
-    # BƯỚC QUAN TRỌNG: Trang bị chiếc điện thoại "Kubectl" và "Helm" vào bên trong Pod Runner nội bộ
+    # BƯỚC ĐÃ ĐƯỢC SỬA LỖI QUYỀN GHI (PERMISSION DENIED)
     - name: Install Kubernetes CLI Tools inside Pod Runner
       run: |
         echo "📥 Đang tải Kubectl nội bộ cho hệ điều hành của Pod..."
         curl -LO "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
         chmod +x kubectl
         
-        echo "📥 Đang tải Helm nội bộ cho hệ điều hành của Pod..."
-        curl -s https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash -s -- --no-sudo
+        echo "📥 Đang tải Helm nội bộ không cần quyền Root..."
+        curl -LO "https://get.helm.sh/helm-v3.13.1-linux-amd64.tar.gz"
+        tar -zxvf helm-v3.13.1-linux-amd64.tar.gz
+        mv linux-amd64/helm ./helm
+        chmod +x helm
+        rm -rf linux-amd64 helm-v3.13.1-linux-amd64.tar.gz
         
-        # Đưa đường dẫn chứa file thực thi vào GITHUB_PATH để các bước sau gọi trực tiếp được luôn
+        # Đăng ký PATH nội bộ cho luồng GHA
         echo "${{ github.workspace }}" >> $GITHUB_PATH
-        echo "/usr/local/bin" >> $GITHUB_PATH
 
     - name: Setup Ephemeral Environment & Run Integration Test
       run: |
-        # Đặt tên Namespace biệt lập tránh trùng lặp giữa các luồng Monorepo chạy song song
         NS="test-order-service-${{ github.run_id }}-${{ github.run_attempt }}"
         echo "Namespace tạm thời: $NS"
         
-        # Tạo namespace độc lập bằng chính chiếc điện thoại vừa cài trong Pod
         kubectl create namespace $NS
         
-        # Cài đặt hạ tầng Kafka/Zookeeper tạm thời phục vụ riêng cho đợt test này
         helm install kafka-test ./helm-charts/kafka-infra --namespace $NS
-        
-        # Đợi Kafka cluster sẵn sàng hoạt động hoàn toàn
         kubectl rollout status deployment/kafka --namespace $NS --timeout=90s
         
-        # Cài đặt toàn bộ ứng dụng Microservices (Inject cái Tag Image vừa build ở Job 1 vào)
         helm install app-test ./helm-charts/app-dev --namespace $NS           --set services.order-service.repository=ghcr.io/${{ env.REPO_LOWER }}/order-service           --set services.order-service.tag=${{ github.sha }}           --set services.notification-service.env[0].value="kafka-service.$NS.svc.cluster.local:9092"           --set services.order-service.env[0].value="kafka-service.$NS.svc.cluster.local:9092"
 
-        # Đợi các pod microservices lên trạng thái Ready đều đặn
         kubectl rollout status deployment/order-service --namespace $NS --timeout=60s
 
-        # Tiến hành chạy file Integration Test hướng vào Endpoint mạng nội bộ của cụm Minikube
         pip install pytest httpx
         pytest src/order-service/integration_test.py --ns=$NS
         
-    # LUÔN LUÔN DỌN DẸP SẠCH SẼ KỂ CẢ TEST THÀNH CÔNG HAY THẤT BẠI
     - name: Purge Ephemeral Environment (Anti-Trash)
       if: always()
       run: |
         NS="test-order-service-${{ github.run_id }}-${{ github.run_attempt }}"
         echo "🧹 Đang dọn dẹp triệt để namespace tạm: $NS"
         kubectl delete namespace $NS --ignore-not-found=true
-
   # ==========================================
   # JOB 3: QUAY LẠI CLOUD (SỬA TAG FILE MANIFEST CHÍNH THỨC)
   # ==========================================
