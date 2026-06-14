@@ -37,7 +37,17 @@ chmod +x ./commit.sh
 
 
 ```bash
+# Tạo namespace cho ARC
+kubectl create namespace arc-systems
 
+# Thêm repo helm và cài đặt Controller
+helm install arc \
+    --namespace arc-systems \
+    oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller
+# Thay <YOUR_TOKEN_HERE> bằng GitHub PAT của bạn
+kubectl create secret generic controller-manager \
+    -n arc-systems \
+    --from-literal=github_token=<YOUR_TOKEN_HERE>
 helm upgrade arc-runner-set \
     --namespace arc-systems \
     --set githubConfigUrl="https://github.com/Thang2005HCMUS/TestCD" \
