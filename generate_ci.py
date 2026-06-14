@@ -114,10 +114,13 @@ jobs:
         helm install kafka-test ./helm-charts/kafka-infra --namespace $NS
         kubectl rollout status deployment/kafka --namespace $NS --timeout=90s
         
+        # Cài đặt toàn bộ ứng dụng Microservices (Truyền chuẩn xác cả cặp name và value cho env)
         helm install app-test ./helm-charts/app-dev --namespace $NS \
           --set services.{service_name}.repository=ghcr.io/${{{{ env.REPO_LOWER }}}}/{service_name} \
           --set services.{service_name}.tag=${{{{ github.sha }}}} \
+          --set services.notification-service.env[0].name="KAFKA_BOOTSTRAP_SERVERS" \
           --set services.notification-service.env[0].value="kafka-service.$NS.svc.cluster.local:9092" \
+          --set services.order-service.env[0].name="KAFKA_BOOTSTRAP_SERVERS" \
           --set services.order-service.env[0].value="kafka-service.$NS.svc.cluster.local:9092"
 
         kubectl rollout status deployment/{service_name} --namespace $NS --timeout=60s
