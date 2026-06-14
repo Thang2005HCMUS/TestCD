@@ -8,7 +8,7 @@ services = [
     {"name": "order-service", "has_mock": True},        # Cần pytest-mock cho Product Service & Kafka[cite: 5]
     {"name": "notification-service", "has_mock": True}, # Cần pytest-mock cho việc lắng nghe Kafka
 ]
-branch = "helm-dev"
+branch = "hybrid-helm-dev"
 
 # Template chung cho tất cả các file CI Workflows (Dùng Helm)
 
