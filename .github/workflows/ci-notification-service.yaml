@@ -58,7 +58,7 @@ jobs:
   # JOB 2: CHẠY TẠI K8S LOCAL QUA ARC (INTEGRATION TEST)
   # ==========================================
   integration-test:
-    runs-on: my-k8s-runner
+    runs-on: arc-runner-set
     needs: build-and-push
     steps:
     - name: Checkout Code
