@@ -34,3 +34,21 @@ chmod +x ./commit.sh
 ./commit.sh
 
 ```
+
+
+```bash
+
+helm upgrade arc-runner-set \
+    --namespace arc-systems \
+    --set githubConfigUrl="https://github.com/Thang2005HCMUS/TestCD" \
+    --set githubConfigSecret=controller-manager \
+    --set maxRunners=4 \
+    --set minRunners=1 \
+    --set template.spec.containers[0].name=runner \
+    --set template.spec.containers[0].image=ghcr.io/actions/actions-runner:latest \
+    --set template.spec.containers[0].volumeMounts[0].name=tool-cache \
+    --set template.spec.containers[0].volumeMounts[0].mountPath=/home/runner/_work/_tool \
+    --set template.spec.volumes[0].name=tool-cache \
+    --set template.spec.volumes[0].emptyDir=\{\} \
+    oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+```

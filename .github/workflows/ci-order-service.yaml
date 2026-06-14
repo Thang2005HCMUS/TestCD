@@ -60,11 +60,6 @@ jobs:
   integration-test:
     runs-on: arc-runner-set
     needs: build-and-push
-    
-    # 🌟 CẢI TIẾN: Chỉ định chạy các step trong một Container có sẵn Python Cache
-    container:
-      image: catthedev/ubuntu-act-runner:24.04
-      
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -121,7 +116,6 @@ jobs:
         NS="test-order-service-${{ github.run_id }}-${{ github.run_attempt }}"
         echo "🧹 Đang dọn dẹp triệt để namespace tạm: $NS"
         kubectl delete namespace $NS --ignore-not-found=true
-
   # ==========================================
   # JOB 3: QUAY LẠI CLOUD (SỬA TAG FILE MANIFEST CHÍNH THỨC)
   # ==========================================
@@ -133,11 +127,6 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
 
     - name: Downcase REPO name
       run: |
