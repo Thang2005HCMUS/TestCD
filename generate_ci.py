@@ -1,11 +1,11 @@
 import os
 
-# Danh sách các microservices và thông tin cấu hình riêng biệt [cite: 5]
+# Danh sách các microservices và thông tin cấu hình riêng biệt
 services = [
     {"name": "auth-service", "has_mock": False},
     {"name": "product-service", "has_mock": False},
-    {"name": "order-service", "has_mock": True},        # Cần pytest-mock cho Product Service & Kafka [cite: 5]
-    {"name": "notification-service", "has_mock": True}, # Cần pytest-mock cho việc lắng nghe Kafka [cite: 5]
+    {"name": "order-service", "has_mock": True},        # Cần pytest-mock cho Product Service & Kafka
+    {"name": "notification-service", "has_mock": True}, # Cần pytest-mock cho việc lắng nghe Kafka
 ]
 branch = "hybrid-helm-dev"
 
@@ -72,6 +72,11 @@ jobs:
   integration-test:
     runs-on: arc-runner-set
     needs: build-and-push
+    
+    # 🌟 CẢI TIẾN: Chỉ định chạy các step trong một Container có sẵn Python Cache
+    container:
+      image: catthedev/ubuntu-act-runner:24.04
+      
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -134,6 +139,7 @@ jobs:
         NS="test-{service_name}-${{{{ github.run_id }}}}-${{{{ github.run_attempt }}}}"
         echo "🧹 Đang dọn dẹp triệt để namespace tạm: $NS"
         kubectl delete namespace $NS --ignore-not-found=true
+
   # ==========================================
   # JOB 3: QUAY LẠI CLOUD (SỬA TAG FILE MANIFEST CHÍNH THỨC)
   # ==========================================
@@ -145,6 +151,11 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
 
     - name: Downcase REPO name
       run: |
@@ -182,7 +193,7 @@ jobs:
 output_dir = ".github/workflows"
 os.makedirs(output_dir, exist_ok=True)
 
-# Tiến hành sinh file tự động [cite: 5]
+# Tiến hành sinh file tự động
 for svc in services:
     title = " ".join([word.capitalize() for word in svc["name"].split("-")])
     mock_package = "pytest-mock" if svc["has_mock"] else ""
