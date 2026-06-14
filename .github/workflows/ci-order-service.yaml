@@ -60,10 +60,6 @@ jobs:
   integration-test:
     runs-on: arc-runner-set
     needs: build-and-push
-    
-    # 🌟 CẢI TIẾN: Chỉ định chạy các step trong một Container có sẵn Python Cache
-    container:
-      image: catthedev/ubuntu-act-runner:24.04
       
     steps:
     - name: Checkout Code
