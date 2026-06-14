@@ -4,19 +4,20 @@ global:
 services:
   auth-service:
     repository: ghcr.io/thang2005hcmus/testcd/auth-service
-    tag: 0aa3f58afa99e63365c678c6c53771c242dfefad
+    tag: ed9c3188ad1a2605b10356ca36f9619734038e71
   notification-service:
-    repository: ghcr.io/<.....>/testcd/notification-service
+    repository: ghcr.io/thang2005hcmus/testcd/notification-service
     tag: ed9c3188ad1a2605b10356ca36f9619734038e71
     env:
       - name: KAFKA_BOOTSTRAP_SERVERS
         value: "kafka-service.testcd.svc.cluster.local:9092" # Sửa 'default' thành namespace bạn triển khai kafka
   order-service:
-    repository: ghcr.io/<.....>/testcd/order-service
+    repository: ghcr.io/thang2005hcmus/testcd/order-service
     tag: ed9c3188ad1a2605b10356ca36f9619734038e71
     env:
       - name: KAFKA_BOOTSTRAP_SERVERS
         value: "kafka-service.testcd.svc.cluster.local:9092"
   product-service:
-    repository: ghcr.io/<....>/testcd/product-service
+    repository: ghcr.io/thang2005hcmus/testcd/product-service
     tag: ed9c3188ad1a2605b10356ca36f9619734038e71
+
