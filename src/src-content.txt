@@ -47,50 +47,59 @@ print()
 print(f"Đã ghi xong vào {OUTPUT_FILE}")
 
 ======order-service/test_app.py content ======:
+# Mock các cuộc gọi HTTP ra bên ngoài
 from fastapi.testclient import TestClient
 import pytest
 from app import app
 
 client = TestClient(app)
 
+# Tự động mock Kafka Producer cho toàn bộ các test case trong file này
+@pytest.fixture(autouse=True)
+def mock_kafka_producer(mocker):
+    # Giả lập class AIOKafkaProducer
+    mock_producer_class = mocker.patch("app.AIOKafkaProducer", autospec=True)
+    # Giả lập instance được tạo ra sau khi gọi AIOKafkaProducer()
+    mock_instance = mock_producer_class.return_value
+    # Giả lập các hàm async start, stop và send_and_wait thành các hàm không làm gì (AsyncMock)
+    mock_instance.start = mocker.AsyncMock()
+    mock_instance.stop = mocker.AsyncMock()
+    mock_instance.send_and_wait = mocker.AsyncMock()
+    return mock_instance
+
 def test_health_check():
     response = client.get("/healthz")
     assert response.status_code == 200
 
-# Mock các cuộc gọi HTTP ra bên ngoài
+# Mock các cuộc gọi HTTP ra bên ngoài và kiểm tra logic gửi Kafka
 @pytest.mark.asyncio
 async def test_create_order_success(mocker):
-    # Giả lập Product Service trả về thông tin Laptop
-    mock_product_resp = mocker.Mock()
-    mock_product_resp.status_code = 200
-    mock_product_resp.json.return_value = {"name": "Laptop Gaming", "price": 1500}
+    # Giả lập Product Service trả về thông tin Laptop 
+    mock_product_resp = mocker.Mock() 
+    mock_product_resp.status_code = 200 
+    mock_product_resp.json.return_value = {"name": "Laptop Gaming", "price": 1500} 
     
-    # Giả lập Notification Service trả về thành công
-    mock_notify_resp = mocker.Mock()
-    mock_notify_resp.status_code = 200
+    # Khởi tạo mock cho AsyncClient của httpx 
+    mock_client = mocker.patch("httpx.AsyncClient", autospec=True) 
+    mock_instance = mock_client.return_value.__aenter__.return_value 
+    mock_instance.get.return_value = mock_product_resp 
 
-    # Khởi tạo mock cho AsyncClient
-    mock_client = mocker.patch("httpx.AsyncClient", autospec=True)
-    mock_instance = mock_client.return_value.__aenter__.return_value
-    mock_instance.get.return_value = mock_product_resp
-    mock_instance.post.return_value = mock_notify_resp
-
-    # Chạy test
-    response = client.post("/orders", json={
-        "product_id": 1,
-        "quantity": 2,
-        "user_email": "test@gmail.com"
-    })
+    # Chạy test API tạo đơn hàng
+    response = client.post("/orders", json={ 
+        "product_id": 1, 
+        "quantity": 2, 
+        "user_email": "test@gmail.com" 
+    }) 
     
-    assert response.status_code == 200
-    assert response.json()["order_status"] == "Success"
-    assert response.json()["total_price"] == 3000#
+    assert response.status_code == 200 
+    assert response.json()["order_status"] == "Success" 
+    assert response.json()["total_price"] == 3000 
 
 ======order-service/requirements.txt content ======:
 # Web Framework
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
-
+aiokafka==0.12.0
 # Data Validation & Settings
 pydantic==2.10.4
 pydantic-settings==2.7.0
@@ -103,6 +112,7 @@ prometheus-fastapi-instrumentator==7.0.0
 
 # Thêm vào cuối file requirements.txt cũ
 pytest==8.3.4
+
 
 ======order-service/dockerfile content ======:
 # --- Giai đoạn 1: Builder ---
@@ -143,28 +153,49 @@ CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ======order-service/app.py content ======:
 import os
+import json
 import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from aiokafka import AIOKafkaProducer
 
 app = FastAPI(title="Order Service")
 
-# K8s sẽ phân giải DNS nội bộ dạng http://<service-name>:<port>
 PRODUCT_SERVICE_URL = os.getenv("PRODUCT_SERVICE_URL", "http://product-service:8000")
-NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://notification-service:8000")
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka-service:9092")
+TOPIC_NAME = "order-notifications"
 
 class OrderRequest(BaseModel):
     product_id: int
     quantity: int
     user_email: str
 
+# Khởi tạo Kafka Producer toàn cục
+producer = None
+
+@app.on_event("startup")
+async def startup_event():
+    global producer
+    try:
+        producer = AIOKafkaProducer(bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS)
+        await producer.start()
+        print(f" Kafka Producer started successfully matching cluster: {KAFKA_BOOTSTRAP_SERVERS}")
+    except Exception as e:
+        print(f"❌ Failed to start Kafka Producer: {e}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global producer
+    if producer:
+        await producer.stop()
+
 @app.get("/healthz")
 def health_check():
     return {"status": "healthy", "service": "order-service"}
 
-@app.post("/orders")#
+@app.post("/orders")
 async def create_order(order: OrderRequest):
-    # 1. Gọi sang Product Service lấy thông tin sản phẩm
+    # 1. Gọi sang Product Service lấy thông tin sản phẩm [cite: 10]
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(f"{PRODUCT_SERVICE_URL}/products/{order.product_id}")
@@ -172,20 +203,26 @@ async def create_order(order: OrderRequest):
                 raise HTTPException(status_code=400, detail="Sản phẩm không tồn tại")
             product_data = response.json()
         except httpx.RequestError:
-            raise HTTPException(status_code=500, detail="Không thể kết nối tới Product Service")
+            raise HTTPException(status_code=500, detail="Không thể kết nối tới Product Service") 
 
-    # 2. Tính toán tổng tiền
+    # 2. Tính toán tổng tiền [cite: 12]
     total_price = product_data["price"] * order.quantity
     
-    # 3. Gửi thông báo ngầm sang Notification Service (Fire and Forget)
-    async with httpx.AsyncClient() as client:
+    # 3. Gửi Event vào Kafka thay vì gọi HTTP direct sang Notification Service [cite: 12]
+    event_message = {
+        "email": order.user_email,
+        "message": f"Bạn đã đặt hàng thành công đơn hàng {product_data['name']}. Tổng tiền: ${total_price}" 
+    }
+    
+    if producer:
         try:
-            await client.post(f"{NOTIFICATION_SERVICE_URL}/notify", json={
-                "email": order.user_email,
-                "message": f"Bạn đã đặt hàng thành công đơn hàng {product_data['name']}. Tổng tiền: ${total_price}"
-            })
-        except httpx.RequestError:
-            print("Cảnh báo: Không thể gửi thông báo, nhưng đơn hàng vẫn được xử lý.")
+            payload = json.dumps(event_message).encode('utf-8')
+            await producer.send_and_wait(TOPIC_NAME, payload)
+            print(f"📬 Event sent to Kafka topic '{TOPIC_NAME}'")
+        except Exception as e:
+            print(f"⚠️ Cảnh báo: Lỗi gửi Kafka event ({e}), đơn hàng vẫn tiếp tục xử lý.")
+    else:
+        print("⚠️ Cảnh báo: Kafka Producer chưa sẵn sàng.")
 
     return {
         "order_status": "Success",
@@ -194,7 +231,7 @@ async def create_order(order: OrderRequest):
     }
 
 ======order-service/change_trig.txt content ======:
-25
+45
 
 ======auth-service/test_app.py content ======:
 from fastapi.testclient import TestClient
@@ -233,6 +270,7 @@ prometheus-fastapi-instrumentator==7.0.0
 
 # Thêm vào cuối file requirements.txt cũ
 pytest==8.3.4
+
 
 ======auth-service/dockerfile content ======:
 # --- Giai đoạn 1: Builder ---
@@ -309,7 +347,7 @@ test ci
 
 
 ======auth-service/change_trig.txt content ======:
-25
+45
 
 ======product-service/test_app.py content ======:
 from fastapi.testclient import TestClient
@@ -419,31 +457,47 @@ def get_product(product_id: int):
     return product
 
 ======product-service/change_trig.txt content ======:
-25
+45
 
 ======notification-service/test_app.py content ======:
 from fastapi.testclient import TestClient
+import pytest
 from app import app
 
 client = TestClient(app)
 
+# Tự động mock Kafka Consumer để tránh loop vô hạn hoặc lỗi kết nối cluster khi khởi động app
+@pytest.fixture(autouse=True)
+def mock_kafka_consumer(mocker):
+    # Giả lập class AIOKafkaConsumer
+    mock_consumer_class = mocker.patch("app.AIOKafkaConsumer", autospec=True)
+    mock_instance = mock_consumer_class.return_value
+    
+    # Giả lập hàm start, stop
+    mock_instance.start = mocker.AsyncMock()
+    mock_instance.stop = mocker.AsyncMock()
+    
+    # Giả lập hành vi lặp (async for) trả về rỗng để tránh block ứng dụng khi test API
+    mock_instance.__aiter__.return_value = []
+    return mock_instance
+
 def test_health_check():
-    response = client.get("/healthz")
-    assert response.status_code == 200
+    response = client.get("/healthz") 
+    assert response.status_code == 200 
 
 def test_send_notification():
-    response = client.post("/notify", json={
-        "email": "customer@gmail.com",
-        "message": "Đơn hàng đã giao"
-    })
-    assert response.status_code == 200
-    assert response.json()["status"] == "Sent"#
+    response = client.post("/notify", json={ 
+        "email": "customer@gmail.com", 
+        "message": "Đơn hàng đã giao" 
+    }) 
+    assert response.status_code == 200 
+    assert response.json()["status"] == "Sent" 
 
 ======notification-service/requirements.txt content ======:
 # Web Framework
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
-
+aiokafka==0.12.0
 # Data Validation & Settings
 pydantic==2.10.4
 pydantic-settings==2.7.0
@@ -495,10 +549,17 @@ EXPOSE 8000
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ======notification-service/app.py content ======:
+import os
+import asyncio
+import json
 from fastapi import FastAPI
 from pydantic import BaseModel
+from aiokafka import AIOKafkaConsumer
 
 app = FastAPI(title="Notification Service")
+
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka-service:9092")
+TOPIC_NAME = "order-notifications"
 
 class NotificationRequest(BaseModel):
     email: str
@@ -510,13 +571,43 @@ def health_check():
 
 @app.post("/notify")
 def send_notification(payload: NotificationRequest):
-    # Giả lập logic gửi email thực tế
-    print(f"[EMAIL SENT] Gửi tới {payload.email}: {payload.message}")
-    return {
-        "status": "Sent",
-        "to": payload.email
-    }
+    # Giữ nguyên API cũ để tương thích ngược nếu cần 
+    print(f"[API HTTP SENT] Gửi tới {payload.email}: {payload.message}") 
+    return {"status": "Sent", "to": payload.email} 
+
+# Hàm chạy ngầm lắng nghe Kafka Event
+async def consume_kafka_events():
+    while True:
+        try:
+            consumer = AIOKafkaConsumer(
+                TOPIC_NAME,
+                bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+                group_id="notification-group"
+            )
+            await consumer.start()
+            print(f" 🎧 Kafka Consumer listening on topic '{TOPIC_NAME}'...")
+            
+            try:
+                async for msg in consumer:
+                    try:
+                        data = json.loads(msg.value.decode('utf-8'))
+                        email = data.get("email")
+                        message = data.get("message")
+                        # Giả lập logic gửi mail thực tế 
+                        print(f"[KAFKA EVENT RECEIVED] Gửi tới {email}: {message}")
+                    except Exception as parse_err:
+                        print(f"❌ Error parsing message: {parse_err}")
+            finally:
+                await consumer.stop()
+        except Exception as conn_err:
+            print(f"⚠️ Kafka connection error: {conn_err}. Reconnecting in 5s...")
+            await asyncio.sleep(5)
+
+@app.on_event("startup")
+async def startup_event():
+    # Chạy Consumer như một background task của Asyncio để không chặn Uvicorn port 8000
+    asyncio.create_task(consume_kafka_events())
 
 ======notification-service/change_trig.txt content ======:
-25
+45
 

@@ -1,0 +1,335 @@
+======script.py content ======:
+import os
+
+# File output
+OUTPUT_FILE = "helm-content.txt"
+
+# Lấy thư mục hiện tại
+root_dir = os.getcwd()
+
+# Các file cần bỏ qua
+exclude_files = {OUTPUT_FILE}
+
+# Hàm đọc file text an toàn
+def read_file(filepath):
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            return f.read()
+    except UnicodeDecodeError:
+        try:
+            with open(filepath, "r", encoding="latin-1") as f:
+                return f.read()
+        except:
+            return "[Không thể đọc nội dung file]"
+    except Exception as e:
+        return f"[Lỗi khi đọc file: {e}]"
+
+# Ghi toàn bộ nội dung vào content.txt
+with open(OUTPUT_FILE, "w", encoding="utf-8") as output:
+    for foldername, subfolders, filenames in os.walk(root_dir):
+        for filename in filenames:
+            if filename in exclude_files:
+                continue
+
+            full_path = os.path.join(foldername, filename)
+
+            # Đường dẫn tương đối
+            relative_path = os.path.relpath(full_path, root_dir)
+
+            # Đọc nội dung file
+            content = read_file(full_path)
+
+            # Ghi ra file
+            output.write(f"======{relative_path} content ======:\n")
+            output.write(content)
+            output.write("\n\n")
+print()
+print(f"Đã ghi xong vào {OUTPUT_FILE}")
+
+======app-dev/values.yaml content ======:
+# helm-charts/app-dev/values.yaml
+global:
+  registry: ghcr.io
+services:
+  auth-service:
+    repository: ghcr.io/thang2005hcmus/testcd/auth-service
+    tag: 337872cfbcb365ae17c23a35f0f9310f85922acb
+  notification-service:
+    repository: ghcr.io/thang2005hcmus/testcd/notification-service
+    tag: 337872cfbcb365ae17c23a35f0f9310f85922acb
+    env:
+      - name: KAFKA_BOOTSTRAP_SERVERS
+        value: "kafka-service.testcd.svc.cluster.local:9092" # Sửa 'default' thành namespace bạn triển khai kafka
+  order-service:
+    repository: ghcr.io/thang2005hcmus/testcd/order-service
+    tag: 337872cfbcb365ae17c23a35f0f9310f85922acb
+    env:
+      - name: KAFKA_BOOTSTRAP_SERVERS
+        value: "kafka-service.testcd.svc.cluster.local:9092"
+  product-service:
+    repository: ghcr.io/thang2005hcmus/testcd/product-service
+    tag: 337872cfbcb365ae17c23a35f0f9310f85922acb
+
+
+======app-dev/Chart.yaml content ======:
+apiVersion: v2
+name: app-dev
+description: A Helm chart for deploying microservices in the development environment
+type: application
+
+# Đây là phiên bản của chính cái Chart Helm này (tăng tiến khi bạn thay đổi cấu trúc template)
+version: 1.0.0
+
+# Đây là phiên bản của ứng dụng tổng (App Version)
+appVersion: "1.0.0"
+
+======app-dev/templates/deployment.yaml content ======:
+{{- range $name, $config := .Values.services }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}
+    spec:
+      containers:
+      - name: {{ $name }}
+        image: "{{ $config.repository }}:{{ $config.tag }}"
+        ports:
+        - containerPort: 8000
+        # Nếu service có cấu hình env riêng biệt (ví dụ order-service)
+        {{- if $config.env }}
+        env:
+          {{- toYaml $config.env | nindent 10 }}
+        {{- end }}
+---
+{{- end }}
+
+======app-dev/templates/service.yaml content ======:
+{{- range $name, $config := .Values.services }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+spec:
+  ports:
+  - port: 8000       # Hoặc dùng {{ $config.port | default 8000 }} nếu sau này có service chạy port khác
+    targetPort: 8000
+  selector:
+    app: {{ $name }}
+---
+{{- end }}
+
+======kafka-infra/Chart.yaml content ======:
+apiVersion: v2
+name: kafka-infra
+description: Hạ tầng Message Broker Kafka dành cho môi trường Dev
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+======kafka-infra/templates/kafka.yaml content ======:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+  labels:
+    app: kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - name: kafka
+        image: confluentinc/cp-kafka:7.7.1
+        ports:
+        - containerPort: 9092
+          name: inside
+        - containerPort: 29092
+          name: outside
+        env:
+        - name: KAFKA_BROKER_ID
+          value: "1"
+        - name: KAFKA_ZOOKEEPER_CONNECT
+          value: "zookeeper-service:2181"
+        # Sửa đổi quan trọng: Cấu hình chuẩn hóa Listener để K8s API và ArgoCD không phân tích lỗi
+        - name: KAFKA_LISTENERS
+          value: "INSIDE://0.0.0.0:9092,OUTSIDE://0.0.0.0:29092"
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "INSIDE://kafka-service:9092,OUTSIDE://127.0.0.1:29092"
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: "INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT"
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: "INSIDE"
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-service
+spec:
+  ports:
+  - port: 9092
+    targetPort: 9092
+    name: inside
+  - port: 29092
+    targetPort: 29092
+    name: outside
+  selector:
+    app: kafka
+
+======kafka-infra/templates/kafka-ui.yaml content ======:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-ui
+  labels:
+    app: kafka-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-ui
+  template:
+    metadata:
+      labels:
+        app: kafka-ui
+    spec:
+      containers:
+      - name: kafka-ui
+        image: provectuslabs/kafka-ui:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: DYNAMIC_CONFIG_ENABLED
+          value: "true"
+        - name: KAFKA_CLUSTERS_0_NAME
+          value: "local-k8s-cluster"
+        - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
+          value: "kafka-service:9092"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-ui-service
+spec:
+  type: NodePort
+  ports:
+  - port: 8089
+    targetPort: 8080
+    name: http
+  selector:
+    app: kafka-ui
+
+======kafka-infra/templates/zookeeper.yaml content ======:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zookeeper
+  labels:
+    app: zookeeper
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+      - name: zookeeper
+        image: debezium/zookeeper:2.7.3.Final
+        ports:
+        - containerPort: 2181
+          name: client
+        - containerPort: 2888
+          name: peer
+        - containerPort: 3888
+          name: leader-election
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-service
+spec:
+  ports:
+  - port: 2181
+    targetPort: 2181
+    name: client
+  selector:
+    app: zookeeper
+
+======kafka-infra/templates/kafka-connect.yaml content ======:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-connect
+  labels:
+    app: kafka-connect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-connect
+  template:
+    metadata:
+      labels:
+        app: kafka-connect
+    spec:
+      containers:
+      - name: kafka-connect
+        image: debezium/connect:2.7.3.Final
+        ports:
+        - containerPort: 8083
+          name: api
+        - containerPort: 5005
+          name: debug
+        env:
+        - name: BOOTSTRAP_SERVERS
+          value: "kafka-service:9092"
+        - name: GROUP_ID
+          value: "1"
+        - name: CONFIG_STORAGE_TOPIC
+          value: "kafka_connect_configs"
+        - name: OFFSET_STORAGE_TOPIC
+          value: "kafka_connect_offsets"
+        - name: STATUS_STORAGE_TOPIC
+          value: "kafka_connect_statuses"
+        - name: KEY_CONVERTER
+          value: "org.apache.kafka.connect.json.JsonConverter"
+        - name: VALUE_CONVERTER
+          value: "org.apache.kafka.connect.json.JsonConverter"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-connect-service
+spec:
+  ports:
+  - port: 8083
+    targetPort: 8083
+    name: api
+  selector:
+    app: kafka-connect
+

@@ -1,16 +1,12 @@
 import os
 
-# Danh sách các microservices và thông tin cấu hình riêng biệt
-# Cập nhật: Cả order-service và notification-service đều cần mock để test phần liên quan đến Kafka
 services = [
     {"name": "auth-service", "has_mock": False},
     {"name": "product-service", "has_mock": False},
-    {"name": "order-service", "has_mock": True},        # Cần pytest-mock cho Product Service & Kafka[cite: 5]
-    {"name": "notification-service", "has_mock": True}, # Cần pytest-mock cho việc lắng nghe Kafka
+    {"name": "order-service", "has_mock": True},        
+    {"name": "notification-service", "has_mock": True}, 
 ]
 branch = "hybrid-helm-dev"
-
-# Template chung cho tất cả các file CI Workflows (Dùng Helm)
 
 workflow_template = """name: CI {service_title}
 
@@ -22,11 +18,16 @@ on:
       - ".github/workflows/ci-{service_name}.yaml"
 
 jobs:
-  test-build-deploy:
+  # ==========================================
+  # JOB 1: CHẠY TRÊN CLOUD (UNIT TEST & BUILD IMAGE)
+  # ==========================================
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       packages: write
+    outputs:
+      image_tag: ${{{{ github.sha }}}}
 
     steps:
     - name: Checkout Code
@@ -37,7 +38,7 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install Dependencies & Run Tests
+    - name: Install Dependencies & Run Unit Tests
       run: |
         cd src/{service_name}
         pip install --no-cache-dir -r requirements.txt pytest {mock_package}
@@ -63,7 +64,83 @@ jobs:
         push: true
         tags: ghcr.io/${{{{ env.REPO_LOWER }}}}/{service_name}:${{{{ github.sha }}}}
 
-    # Dùng yq để cập nhật values.yaml của Helm
+  # ==========================================
+  # JOB 2: CHẠY TẠI K8S LOCAL QUA ARC (INTEGRATION TEST)
+  # ==========================================
+  integration-test:
+    runs-on: my-k8s-runner
+    needs: build-and-push
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Downcase REPO name
+      run: |
+        echo "REPO_LOWER=${{GITHUB_REPOSITORY_LOWER,,}}" >> $GITHUB_ENV
+      env:
+        GITHUB_REPOSITORY_LOWER: ${{{{ github.repository }}}}
+
+    - name: Setup Ephemeral Environment & Run Integration Test
+      run: |
+        # Đặt tên Namespace biệt lập tránh trùng lặp giữa các luồng Monorepo chạy song song
+        NS="test-{service_name}-${{{{ github.run_id }}}}-${{{{ github.run_attempt }}}}"
+        echo "Namespace tạm thời: $NS"
+        
+        # Tạo namespace độc lập
+        kubectl create namespace $NS
+        
+        # Cài đặt hạ tầng Kafka/Zookeeper tạm thời phục vụ đợt test
+        helm install kafka-test ./helm-charts/kafka-infra --namespace $NS
+        
+        # Đợi Kafka cluster sẵn sàng hoạt động
+        kubectl rollout status deployment/kafka --namespace $NS --timeout=90s
+        
+        # Cài đặt toàn bộ ứng dụng Microservices (Inject cái Tag Image vừa build ở Job 1 vào)
+        helm install app-test ./helm-charts/app-dev --namespace $NS \
+          --set services.{service_name}.repository=ghcr.io/${{{{ env.REPO_LOWER }}}}/{service_name} \
+          --set services.{service_name}.tag=${{{{ github.sha }}}} \
+          --set services.notification-service.env[0].value="kafka-service.$NS.svc.cluster.local:9092" \
+          --set services.order-service.env[0].value="kafka-service.$NS.svc.cluster.local:9092"
+
+        # Đợi các pod microservices lên đều
+        kubectl rollout status deployment/{service_name} --namespace $NS --timeout=60s
+
+        # Tiến hành chạy file Integration Test thực tế hướng vào Endpoint của K8s Service nội bộ
+        pip install pytest httpx
+        pytest src/{service_name}/integration_test.py --ns=$NS
+        
+    # LUÔN LUÔN DỌN DẸP SẠCH SẼ KỂ CẢ TEST THÀNH CÔNG HAY THẤT BẠI
+    - name: Purge Ephemeral Environment (Anti-Trash)
+      if: always()
+      run: |
+        NS="test-{service_name}-${{{{ github.run_id }}}}-${{{{ github.run_attempt }}}}"
+        echo "🧹 Đang dọn dẹp triệt để namespace: $NS"
+        kubectl delete namespace $NS --ignore-not-found=true
+        rm -rf ${{{{ github.workspace }}}}/*
+
+  # ==========================================
+  # JOB 3: QUAY LẠI CLOUD (SỬA TAG FILE MANIFEST CHÍNH THỨC)
+  # ==========================================
+  update-gitops-manifest:
+    runs-on: ubuntu-latest
+    needs: integration-test
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Downcase REPO name
+      run: |
+        echo "REPO_LOWER=${{GITHUB_REPOSITORY_LOWER,,}}" >> $GITHUB_ENV
+      env:
+        GITHUB_REPOSITORY_LOWER: ${{{{ github.repository }}}}
+
     - name: Update Image Tag in Helm values.yaml
       run: |
         yq -i '.services."{service_name}".repository = "ghcr.io/'"${{{{ env.REPO_LOWER }}}}"'/{service_name}"' helm-charts/app-dev/values.yaml
@@ -75,28 +152,24 @@ jobs:
         git config --local user.name "github-actions[bot]"
         git add helm-charts/app-dev/values.yaml
         
-        # Chỉ commit nếu thực sự có sự thay đổi
         git commit -m "chore(gitops): update {service_name} helm tag to ${{{{ github.sha }}}} [skip ci]" || echo "No changes to commit"
         
-        # CHIẾN THUẬT: Vòng lặp kéo code mới về (rebase) rồi push, thử lại tối đa 5 lần
         for i in {{1..5}}; do
           echo "Đang thử push lần $i..."
           git pull --rebase origin {branch_name}
           if git push origin {branch_name}; then
-            echo "✅ Push cấu hình thành công!"
+            echo "✅ Push cấu hình thành công, chờ ArgoCD đồng bộ!"
             exit 0
           fi
-          echo "❌ Push thất bại do xung đột, đang đợi để thử lại..."
-          sleep $((RANDOM % 5 + 2))
+          echo "❌ Trùng lịch push với service khác, đang đợi rebase lại..."
+          sleep $(((RANDOM % 5 + 2)))
         done
         exit 1
 """
 
-# Thư mục đích để lưu file YAML
 output_dir = ".github/workflows"
 os.makedirs(output_dir, exist_ok=True)
 
-# Tiến hành sinh file tự động
 for svc in services:
     title = " ".join([word.capitalize() for word in svc["name"].split("-")])
     mock_package = "pytest-mock" if svc["has_mock"] else ""
@@ -109,10 +182,7 @@ for svc in services:
     )
     
     file_path = os.path.join(output_dir, f"ci-{svc['name']}.yaml")
-    
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(rendered_content)
         
-    print(f"✅ Đã cập nhật file CI chạy Helm: {file_path}")
-
-print("\n=== Hoàn thành! Đã chuyển đổi toàn bộ Workflow sang cơ chế Helm ===")
+    print(f"✅ Đã cập nhật file Hybrid CI chạy Helm: {file_path}")
