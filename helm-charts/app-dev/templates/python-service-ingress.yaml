@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: service-ingress
+  namespace: testcd
+  annotations:
+    ingressClassName: nginx
+    # Thêm các cấu hình nginx khác nếu cần (ví dụ: cors, rewrite...)
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+  {{- range $name, $config := .Values.services }}
+  - host: "testcd.{{ $name }}.local.com"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ $name }}
+            port:
+              number: 8000
+  {{- end }}
