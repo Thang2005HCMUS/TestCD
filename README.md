@@ -26,7 +26,32 @@ kubectl port-forward svc/argocd-server -n argocd 9000:443
 ```
 https://localhost:9000
 ```
-
+### cấu hình truy cập argoCD qua ingress
+```YAML
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server-ingress
+  namespace: argocd
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS" # Bảo NGINX nói chuyện với ArgoCD bằng HTTPS
+    # Nếu bạn dùng chứng chỉ tự ký của ArgoCD, NGINX có thể sẽ chặn vì không tin tưởng. 
+    # Thêm dòng dưới để NGINX bỏ qua việc kiểm tra chứng chỉ của ArgoCD:
+    nginx.ingress.kubernetes.io/proxy-ssl-verify: "off"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: argocd.local.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: argocd-server
+            port:
+              name: https # Hoặc số port là 443
+```
 ### Test CD 
 
 ```
